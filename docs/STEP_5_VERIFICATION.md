@@ -16,7 +16,8 @@
 ## Blocked or not tested
 
 - Account A and Account B browser login/dashboard flows, plus symmetric direct cross-tenant company/customer URL checks: passed after local development-server recovery. Full browser QA remains incomplete; see `STAGE_5_BROWSER_QA.md`.
-- Account A subscription is now Business through a controlled live data correction. Account B remains Starter. The plan is not currently rendered in the workspace UI.
+- Account A subscription is Business and Account B remains Starter, but the plan is not currently rendered in the workspace UI.
+- Browser CRUD sign-off is blocked: the company list has no edit or archive controls. Branch/customer edit/archive controls, full follow-up editing/scheduling, responsive sweep, accessibility review and logout/back-navigation QA remain incomplete.
 - Generated remote database types: blocked by project API permission. The local placeholder remains in use.
 - Migration ledger: unresolved. Do not run `supabase db push`. Once remote history is reconciled, mark every manually applied Stage 2-5 migration as applied only after confirming remote equivalence.
 - Platform-admin boundary: not tested because no authorised platform-admin test identity exists.

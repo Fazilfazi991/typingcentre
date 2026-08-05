@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_noStore as noStore } from "next/cache";
+import { redirect } from "next/navigation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export type WorkspaceContext = {
@@ -16,19 +17,19 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
   const supabase = await getSupabaseServerClient();
   if (!supabase) return null;
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) redirect("/login" as never);
 
   const { data: profile } = await supabase.from("profiles").select("id, full_name, platform_role, status").eq("id", user.id).maybeSingle();
-  if (!profile || profile.status !== "active" || profile.platform_role === "platform_admin") return null;
+  if (!profile || profile.status !== "active" || profile.platform_role === "platform_admin") redirect("/account-inactive" as never);
 
   const { data: membership } = await supabase.from("organization_memberships").select("organization_id, role, status, is_primary_owner").eq("user_id", user.id).eq("is_primary_owner", true).maybeSingle();
-  if (!membership || membership.status !== "active") return null;
+  if (!membership || membership.status !== "active") redirect("/account-inactive" as never);
 
   const [{ data: organization }, { data: subscription }] = await Promise.all([
     supabase.from("organizations").select("id, name, location, primary_color, status, is_active").eq("id", membership.organization_id).maybeSingle(),
     supabase.from("organization_subscriptions").select("plan, status").eq("organization_id", membership.organization_id).maybeSingle(),
   ]);
-  if (!organization || !subscription) return null;
+  if (!organization || !subscription) redirect("/account-inactive" as never);
 
   return { supabase, user: { id: user.id, email: user.email }, profile, membership, organization, subscription };
 }

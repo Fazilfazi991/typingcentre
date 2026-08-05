@@ -10,6 +10,7 @@
 - Unit validation coverage for CRM schemas, safe list parsing, masking and database error mapping.
 - Batch 5A implementation checks: company detail branch list now filters archived branches, company archive revalidates dashboard/list/detail, and production QA can use `npm run start`.
 - `npm run typecheck`, `npm run lint`, `npm test` and `npm run build` passed after the Batch 5A verification fixes.
+- Stage 5 Batch 5A browser verification passed and is signed off: Amina company/branch CRUD/archive, Daniel company/branch smoke, symmetric direct URL isolation, logout/back-navigation, responsive QA, accessibility QA, console inspection and archive retention checks.
 
 ## Corrective migration
 
@@ -17,9 +18,7 @@
 
 ## Blocked or not tested
 
-- Account A and Account B browser login/dashboard flows, plus symmetric direct cross-tenant company/customer URL checks: passed after local development-server recovery. Batch 5A recheck is blocked because the local QA password variables exist but the verified production Auth email identifiers are not available locally.
-- Account A subscription is Business and Account B remains Starter in the database; the blocked Batch 5A browser pass could not reconfirm rendered plan text.
-- Batch 5A browser CRUD sign-off is blocked: Amina company/branch CRUD, Daniel smoke flow, responsive sweep, accessibility review, direct cross-tenant URL recheck, console/network sweep beyond login, and logout/back-navigation QA require successful owner login.
+- Batch 5B remains not started.
 - Generated remote database types: blocked by project API permission. The local placeholder remains in use.
 - Migration ledger: unresolved. Do not run `supabase db push`. Once remote history is reconciled, mark every manually applied Stage 2-5 migration as applied only after confirming remote equivalence.
 - Platform-admin boundary: not tested because no authorised platform-admin test identity exists.

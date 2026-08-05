@@ -22,3 +22,5 @@ On 2026-08-05, Batch 5A verification used production mode after earlier developm
 - `npm run start -- -p 3000`
 
 The package now includes a `start` script for this fallback. `/login` returned HTTP 200 in production mode.
+
+Batch 5A final browser verification used this production fallback rather than the unreliable development server.

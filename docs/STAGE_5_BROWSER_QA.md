@@ -1,6 +1,6 @@
 # Stage 5 Browser QA
 
-Environment: local development server on port 3000, in-app browser, 2026-08-05. `.env.local` was present and gitignored; no values, credentials, tokens, or sensitive customer values were recorded.
+Environment: production QA server on port 3000, in-app browser, 2026-08-05 to 2026-08-06. `.env.local` was present and gitignored; no values, credentials, tokens or sensitive customer values were recorded.
 
 ## Passed
 
@@ -13,11 +13,17 @@ Environment: local development server on port 3000, in-app browser, 2026-08-05. 
 - The development server recovery and protected-route route compilation behavior are recorded in `LOCAL_SERVER_TROUBLESHOOTING.md`.
 - Batch 5A production-server smoke: `npm run build` and `npm run start -- -p 3000` loaded `/login` with HTTP 200 and zero browser console errors.
 - `.env.local` remains gitignored. The service-role key line was removed after the blocked QA attempt, and no admin client was used for browser QA.
+- Batch 5A browser CRUD passed for Amina: company create/view/edit, branch create/edit, branch archive, company-list archive and company-detail archive.
+- Batch 5A Daniel smoke passed: Smart Documents Services / Starter workspace, company create/view/edit, branch create/edit/archive, and no Al Noor data.
+- Symmetric direct cross-tenant company detail/edit and branch edit URLs returned neutral not-found responses with no tenant names or raw RLS/SQL details.
+- Logout and browser-back protection passed after unauthenticated workspace routes were corrected to redirect to `/login`.
+- Responsive QA passed at 1440x900, 1280x800, 1024x768, 768x1024, 390x844 and 360x800.
+- Accessibility QA passed for archive controls, dialog semantics, Escape close, labelled forms, required fields and visible focus.
+- Archived company detail remained retained and read-only to the owning tenant; archived companies and branches remained excluded from active lists.
 
 ## Not completed
 
-- Batch 5A protected browser CRUD is blocked. The local QA user IDs and passwords are present, but the available non-secret account emails were rejected by production Auth with the safe login error. The exact QA account email identifiers must be provided through secure local storage before browser CRUD can continue.
-- Amina company create/view/edit/archive, Amina branch create/edit/archive, Daniel company/branch smoke, direct cross-tenant URLs, logout/back-navigation, responsive breakpoints, keyboard/accessibility sweep, and full console/network sweep remain blocked by the login identifier issue.
-- The app resolves Account A's Business subscription correctly in the database; the current blocked browser pass could not reconfirm the rendered plan text.
+- Archived-business list UI is not present in Batch 5A, so archived records are verified through read-only owner detail reachability and active-list exclusion.
+- Full Stage 5 sign-off remains pending later batches.
 
-These unchecked flows keep Stage 5 browser sign-off incomplete.
+Batch 5A browser sign-off is complete.

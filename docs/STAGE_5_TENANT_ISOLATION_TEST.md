@@ -16,4 +16,4 @@ The checks used the public key plus authenticated owner sessions. No service-rol
 
 Browser follow-up: Account A direct URLs for Account B's company and customer were tested after local server recovery. Both showed the neutral not-found page with no tenant-data disclosure.
 
-Batch 5A recheck on 2026-08-05 is blocked. The local QA user IDs and passwords are present, but the verified production Auth email identifiers are not available locally. No service-role lookup was used for normal browser QA.
+Batch 5A browser recheck on 2026-08-05 to 2026-08-06 passed. Amina and Daniel each received neutral not-found responses for the other tenant's company detail, company edit and branch edit URLs. Random and malformed UUIDs also returned neutral not-found responses. No service-role lookup was used for normal browser QA.

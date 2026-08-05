@@ -6,4 +6,4 @@ The database rejects cross-tenant company links, active duplicate codes inside o
 
 Company detail filters branch rows with `archived_at is null` so archived branches are removed from the active branch list even though owner-only archived-record policies exist to support mutation completion.
 
-Batch 5A browser sign-off is currently blocked because the local QA password variables exist but the verified production Auth email identifiers are not available in local storage.
+Batch 5A browser sign-off passed for branch create, edit, archive, active-list exclusion, parent-company retention and cross-tenant branch edit URL protection.

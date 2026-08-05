@@ -93,6 +93,13 @@
       .bottom-nav button{border:0;background:#fff;padding:8px 4px;color:#64748b;font-size:11px;font-weight:800;display:grid;place-items:center;gap:3px}.fab{display:grid;position:fixed;right:16px;bottom:76px;width:52px;height:52px;border-radius:50%;border:0;background:var(--primary);color:#fff;box-shadow:var(--shadow);z-index:24}
       .bar-row{grid-template-columns:95px 1fr 34px}.login-card{grid-template-columns:1fr}.demo-panel{border-left:0;border-top:1px solid var(--line)}
     }
+    /* Keep table actions compact: one visible command and one fixed overflow trigger. */
+    .table-card .actions-cell{display:flex;align-items:center;justify-content:flex-start;gap:8px;flex-wrap:nowrap;white-space:nowrap}
+    .table-card .actions-cell>.btn{flex:0 0 auto}
+    .table-card .more-menu{display:block;flex:0 0 34px;width:34px;height:34px;margin:0}
+    .table-card .more-menu summary.btn{display:grid;place-items:center;width:34px;height:34px;min-width:34px;min-height:34px;padding:0;line-height:1}
+    .table-card .more-menu summary.btn i{width:17px;height:17px}
+    @media(max-width:760px){.table-card .actions-cell{padding-top:10px}.table-card .more-menu{flex-basis:34px}}
   </style>
 </head>
 <body>

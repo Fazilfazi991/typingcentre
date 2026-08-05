@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { publicEnv, supabasePublicKey } from "@/lib/config/env.public";
+export async function GET(request: Request) { const url = new URL(request.url); const code = url.searchParams.get("code"); if (!code || !publicEnv.NEXT_PUBLIC_SUPABASE_URL || !supabasePublicKey) return NextResponse.redirect(new URL("/auth/error", url.origin)); const response = NextResponse.redirect(new URL("/dashboard", url.origin)); const supabase = createServerClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, supabasePublicKey, { cookies: { getAll: () => [], setAll: (items) => items.forEach(({ name, value, options }) => response.cookies.set(name, value, options)) } }); const { error } = await supabase.auth.exchangeCodeForSession(code); return error ? NextResponse.redirect(new URL("/auth/error", url.origin)) : response; }

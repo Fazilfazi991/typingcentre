@@ -1,0 +1,4 @@
+"use client";
+import { useActionState, useState } from "react";
+import { loginAction } from "../actions";
+export default function LoginPage() { const [state, action, pending] = useActionState(loginAction, { error: "" }); const [show, setShow] = useState(false); return <main className="auth"><form action={action}><b>RenewTrack</b><h1>Welcome back</h1><p>Sign in to your production workspace.</p><input name="email" type="email" placeholder="Email address" required /><div><input name="password" type={show ? "text" : "password"} placeholder="Password" required /><button type="button" onClick={() => setShow(!show)}>{show ? "Hide" : "Show"}</button></div><button disabled={pending}>Sign in</button>{state.error && <p role="alert">{state.error}</p>}<a href="/forgot-password">Forgot password?</a><a href="/demo">Try the demo</a></form></main>; }

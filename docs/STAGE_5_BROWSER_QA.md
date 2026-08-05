@@ -11,12 +11,13 @@ Environment: local development server on port 3000, in-app browser, 2026-08-05. 
 - Final credential-recovery browser pass: both existing owners signed in with their preserved Auth IDs. Account A reached the Al Noor dashboard; Account B reached Smart Documents Services and did not render Al Noor content. The browser console had no warnings or errors.
 - Session cookie persisted through the login-to-dashboard navigation.
 - The development server recovery and protected-route route compilation behavior are recorded in `LOCAL_SERVER_TROUBLESHOOTING.md`.
+- Batch 5A production-server smoke: `npm run build` and `npm run start -- -p 3000` loaded `/login` with HTTP 200 and zero browser console errors.
+- `.env.local` remains gitignored. The service-role key line was removed after the blocked QA attempt, and no admin client was used for browser QA.
 
 ## Not completed
 
-- Logout/back-navigation flow.
-- Full create/edit/archive UI flows, responsive breakpoints, keyboard/accessibility sweep, console/network sweep, and platform-admin QA.
-- The app resolves Account A's Business subscription correctly in the database; plan text is not currently rendered in the workspace UI.
-- Company list browser inspection found search and creation controls, but no edit or archive control. The existing server actions are not sufficient for browser CRUD sign-off until the controls and feedback paths are implemented.
+- Batch 5A protected browser CRUD is blocked. The local QA user IDs and passwords are present, but the available non-secret account emails were rejected by production Auth with the safe login error. The exact QA account email identifiers must be provided through secure local storage before browser CRUD can continue.
+- Amina company create/view/edit/archive, Amina branch create/edit/archive, Daniel company/branch smoke, direct cross-tenant URLs, logout/back-navigation, responsive breakpoints, keyboard/accessibility sweep, and full console/network sweep remain blocked by the login identifier issue.
+- The app resolves Account A's Business subscription correctly in the database; the current blocked browser pass could not reconfirm the rendered plan text.
 
 These unchecked flows keep Stage 5 browser sign-off incomplete.

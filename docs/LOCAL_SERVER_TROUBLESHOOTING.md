@@ -13,3 +13,12 @@ The fresh server returned HTTP 200 for `/login`. First visits to freshly compile
 ## Remaining risk
 
 The development server is usable but has slow first-route compilation in this local environment. Final build verification remains the stronger deployment check.
+
+## Batch 5A production fallback
+
+On 2026-08-05, Batch 5A verification used production mode after earlier development-server instability:
+
+- `npm run build`
+- `npm run start -- -p 3000`
+
+The package now includes a `start` script for this fallback. `/login` returned HTTP 200 in production mode.

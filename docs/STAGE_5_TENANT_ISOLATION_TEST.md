@@ -15,3 +15,5 @@ Live verification ran on 2026-08-05 using authenticated sessions for the two fic
 The checks used the public key plus authenticated owner sessions. No service-role client was used. Browser direct-URL testing remains pending because the local development server hung during this verification session.
 
 Browser follow-up: Account A direct URLs for Account B's company and customer were tested after local server recovery. Both showed the neutral not-found page with no tenant-data disclosure.
+
+Batch 5A recheck on 2026-08-05 is blocked. The local QA user IDs and passwords are present, but the verified production Auth email identifiers are not available locally. No service-role lookup was used for normal browser QA.

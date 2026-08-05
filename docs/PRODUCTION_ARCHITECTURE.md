@@ -2,7 +2,7 @@
 
 RenewTrack will be a Next.js App Router SaaS hosted on Vercel. Supabase will provide Auth, PostgreSQL and RLS; Cloudflare R2 will hold private document objects; Resend will send reminders. Tenant-owned application types use `organizationId` and will map to PostgreSQL `organization_id` columns.
 
-The planned request flow is browser -> Next.js server boundary -> Supabase/R2. Platform-admin views will be independently guarded, and demo mode remains explicitly separate from production mode.
+The current request flow is browser -> Next.js server boundary -> Supabase RLS. Cloudflare R2 remains future work. Platform-admin views are independently guarded, and demo mode remains explicitly separate from production mode.
 
 ## Planned upload flow
 

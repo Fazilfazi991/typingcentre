@@ -15,9 +15,13 @@ This directory is intentionally local-only in Stage 2. It contains no project re
 
 The project owner should create a Supabase project manually. Do not link the repository until a later implementation stage explicitly calls for it. Before linking, review migrations, enable the intended Data API exposure settings, and implement RLS policies in Stage 4. Never place a service-role key in `NEXT_PUBLIC_*` variables.
 
+## Stage 4 live-state warning
+
+Stage 2, Stage 3, and Stage 4 SQL were manually applied through the hosted SQL Editor. Their schema effects are live, but their versions are not yet recorded in the remote CLI migration ledger. Do not run `db push`, `db reset`, or remote `migration up` until the documented repair has been completed.
+
 ## Stage boundaries
 
 - This migration creates schema integrity only.
 - It does not create user accounts or implement authentication flows.
-- It does not enable RLS or create policies.
+- Stage 4 enables RLS and creates tenant-isolation policies for the current tables.
 - It does not create Storage buckets or R2 upload flows.

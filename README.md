@@ -1,28 +1,9 @@
-# RenewTrack Prototype
+# RenewTrack
 
-RenewTrack is a frontend-only clickable prototype for a UAE document expiry and renewal management service.
+RenewTrack is being migrated from a static document-expiry prototype to a production-ready multi-tenant SaaS application in controlled stages.
 
-## Open it
+## Stage 1
 
-Open `index.html` in a modern browser. It uses CDN versions of Chart.js and Lucide Icons, so an internet connection is recommended.
+The current Next.js shell serves the preserved working demo while shared configuration, domain types, validation, date handling and environment documentation are established. No production backend is connected yet.
 
-Demo login: `admin@renewtrack.ae` / `admin123`.
-
-## Included flows
-
-- Dashboard with expiry charts, live status calculation, follow-ups, and document alerts
-- Company, customer, employee, document, calendar, renewal, follow-up, notification, reports, staff, and settings views
-- Add Company, Add Customer, Add Document, Add Follow-Up, WhatsApp reminder, notification, renewal, CSV export, and reset flows
-- LocalStorage persists login, records, notification read state, and renewal changes.
-
-## Resetting the demo
-
-Open **Settings** and use **Reset Demo Data**. This restores the original sample records; the login session remains active.
-
-## Deployment
-
-Upload the files to Vercel, Netlify, or GitHub Pages. No build process or backend is required.
-
-## Note
-
-This is a frontend prototype only. It does not send real reminders, upload files to a server, or provide production authentication.
+See [the project audit](docs/CURRENT_PROJECT_AUDIT.md), [demo mode](docs/DEMO_MODE.md), and [planned architecture](docs/PRODUCTION_ARCHITECTURE.md).

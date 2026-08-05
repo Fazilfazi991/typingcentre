@@ -13,3 +13,5 @@ Live verification ran on 2026-08-05 using authenticated sessions for the two fic
 | Archived record visibility | Passed: visible only to owning owner; normal active lists filter archived records |
 
 The checks used the public key plus authenticated owner sessions. No service-role client was used. Browser direct-URL testing remains pending because the local development server hung during this verification session.
+
+Browser follow-up: Account A direct URLs for Account B's company and customer were tested after local server recovery. Both showed the neutral not-found page with no tenant-data disclosure.

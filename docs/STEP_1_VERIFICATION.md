@@ -8,6 +8,7 @@
 - `npm test` passed: 3 date utility tests.
 - `npm run build` passed: Next.js production compilation and static generation succeeded.
 - Local smoke request to the Next.js development shell on port `3100` returned HTTP 200 and RenewTrack content.
+- Live browser smoke check confirmed the `/legacy-prototype/index.html` frame is visible from the Next.js home page.
 
 ## Scope
 
@@ -28,7 +29,7 @@ This stage adds the Next.js/TypeScript production foundation while serving the p
 
 ## Files changed
 
-- Next.js configuration, strict TypeScript, ESLint, Prettier, Vitest and environment template.
-- `src/` foundation for typed configuration, demo seams, validation, date utilities and app shell.
-- Preserved `legacy-prototype/` source plus deployable `public/legacy-prototype/` demo copy.
-- Architecture, security, demo mode, environment, audit and verification documents.
+- Tooling: `package.json`, `package-lock.json`, `tsconfig.json`, `next.config.ts`, `eslint.config.mjs`, `vitest.config.ts`, `.prettierrc.json`, `.gitignore`, `.env.example`.
+- App foundation: `src/app/*`, `src/components/legacy/prototype-frame.tsx`, `src/types/domain.ts`, `src/lib/config/*`, `src/lib/demo/*`, `src/lib/dates/expiry.ts`, `src/lib/validation/schemas.ts`, and `tests/expiry.test.ts`.
+- Preserved demo: `legacy-prototype/index.html` and `public/legacy-prototype/index.html`.
+- Documentation: `README.md` and the six files in `docs/`.

@@ -1,0 +1,26 @@
+# Stage 5 Verification
+
+## Passed
+
+- Remote Stage 5 catalog check: CRM tables have RLS and three policies each; expected functions and active-record indexes exist.
+- Fictional Auth users, profile provisioning, organisations, memberships, subscriptions and usage counters.
+- Live two-tenant select, update, insert and relationship-isolation tests.
+- Own-tenant company, branch, customer and follow-up CRUD primitives, including archive and follow-up completion.
+- Passport and Emirates ID list masking helpers.
+- Unit validation coverage for CRM schemas, safe list parsing, masking and database error mapping.
+
+## Corrective migration
+
+`20260805215000_stage_5_archive_policy_correction.sql` was applied manually in the Supabase SQL Editor. It adds owner-only archived-record SELECT policies. This is required because PostgREST needs a matching SELECT policy when an update changes an active record into an archived one. Normal routes continue to query `archived_at is null`.
+
+## Blocked or not tested
+
+- Browser QA, direct browser URL isolation, viewport checks and console/hydration checks: blocked in this session by a non-responsive local Next dev server. No pass claim is made.
+- Business plan assignment for Account A: not tested; both onboarding-created subscriptions are starter.
+- Generated remote database types: blocked by project API permission. The local placeholder remains in use.
+- Migration ledger: unresolved. Do not run `supabase db push`. Once remote history is reconciled, mark every manually applied Stage 2-5 migration as applied only after confirming remote equivalence.
+- Platform-admin boundary: not tested because no authorised platform-admin test identity exists.
+
+## Deferred
+
+R2, uploads, reminders, billing, payments, Staff, OCR and mobile work remain out of scope for Stage 5.

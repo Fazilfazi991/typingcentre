@@ -12,13 +12,13 @@ export function listParams(input: Record<string, string | string[] | undefined>,
 
 export function maskPassport(value: string | null) {
   if (!value) return "Not recorded";
-  return value.length < 5 ? "Hidden" : `${value.slice(0, 2)}${"•".repeat(Math.max(3, value.length - 4))}${value.slice(-2)}`;
+  return value.length < 5 ? "Hidden" : `${value.slice(0, 2)}${"*".repeat(Math.max(3, value.length - 4))}${value.slice(-2)}`;
 }
 
 export function maskEmiratesId(value: string | null) {
   if (!value) return "Not recorded";
   const digits = value.replace(/\D/g, "");
-  return digits.length < 4 ? "Hidden" : `${digits.slice(0, 3)}-••••-•••••••-${digits.slice(-1)}`;
+  return digits.length < 4 ? "Hidden" : `${digits.slice(0, 3)}-****-*******-${digits.slice(-1)}`;
 }
 
 export function safeDatabaseError(error: { code?: string; message?: string } | null | undefined) {

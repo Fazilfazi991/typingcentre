@@ -13,10 +13,12 @@ npx supabase link --project-ref swnuikslynuneucetjub
 npx supabase migration repair --status applied 20260805162339
 npx supabase migration repair --status applied 20260805164117
 npx supabase migration repair --status applied 20260805170848
+npx supabase migration repair --status applied 20260805172049
+npx supabase migration repair --status applied 20260805215000
 npx supabase migration list
 ```
 
-Do not run `db push` before the final command shows all three versions as applied. The Stage 4 migration was manually applied and catalog-verified on 2026-08-05, but still needs this ledger repair.
+Do not run `db push` before the final command shows every Stage 2-5 version as applied. The Stage 4 and Stage 5 migrations were manually applied and catalog-verified on 2026-08-05, but still need this ledger repair. Never mark a partially applied migration as applied.
 
 ## Current status
 

@@ -1,0 +1,39 @@
+import { describe, expect, it } from "vitest";
+import { branchSchema, companySchema, customerSchema, followUpSchema } from "@/features/crm/schemas";
+import { listParams, maskEmiratesId, maskPassport, safeDatabaseError } from "@/lib/workspace/utils";
+
+describe("Stage 5 CRM validation", () => {
+  it("validates company and branch inputs", () => {
+    expect(companySchema.safeParse({ name: "Al Noor", city: "Dubai" }).success).toBe(true);
+    expect(companySchema.safeParse({ name: "A", city: "Dubai" }).success).toBe(false);
+    expect(branchSchema.safeParse({ name: "Central", city: "Dubai", email: "not-an-email" }).success).toBe(false);
+  });
+
+  it("enforces customer branch and company relationships before database checks", () => {
+    const branchId = "7e18e713-93dd-4c3f-9b12-3a2f8868d9c0";
+    expect(customerSchema.safeParse({ fullName: "Amina Test", customerType: "individual", phone: "+971500000000", branchId }).success).toBe(false);
+    expect(customerSchema.safeParse({ fullName: "Amina Test", customerType: "individual", phone: "+971500000000", companyId: branchId, branchId }).success).toBe(true);
+  });
+
+  it("validates follow-up timestamps", () => {
+    expect(followUpSchema.safeParse({ customerId: "7e18e713-93dd-4c3f-9b12-3a2f8868d9c0", dueAt: "2026-08-15T09:00:00.000Z" }).success).toBe(true);
+    expect(followUpSchema.safeParse({ customerId: "invalid", dueAt: "tomorrow" }).success).toBe(false);
+  });
+});
+
+describe("Stage 5 CRM display and list safety", () => {
+  it("masks identity values", () => {
+    expect(maskPassport("P1234567")).not.toContain("3456");
+    expect(maskEmiratesId("784-1990-1234-567")).toBe("784-****-*******-7");
+  });
+
+  it("clamps list parameters to safe values", () => {
+    const result = listParams({ page: "-2", pageSize: "999", search: "  al noor  ", sort: "drop table", direction: "up" }, ["name", "updated_at"]);
+    expect(result).toEqual({ page: 1, pageSize: 20, search: "al noor", sort: "name", direction: "desc" });
+  });
+
+  it("maps database failures without exposing internals", () => {
+    expect(safeDatabaseError({ code: "23505", message: "customers_active_passport_idx" })).toBe("A record with one of those unique details already exists.");
+    expect(safeDatabaseError({ code: "XX000", message: "SQL details" })).toBe("We could not save that change. Please try again.");
+  });
+});

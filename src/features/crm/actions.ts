@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { customerArchiveSchema, customerDatabaseError } from "@/features/crm/customer-utils";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { safeDatabaseError } from "@/lib/workspace/utils";
-import { branchSchema, companySchema, customerSchema, followUpSchema } from "./schemas";
+import { branchSchema, companySchema, customerSchema, followUpSchema, followUpUpdateSchema } from "./schemas";
 
 const emptyToNull = (value: string | undefined) => value?.trim() || null;
 
@@ -351,6 +351,8 @@ export async function createFollowUpAction(formData: FormData) {
     .from("customers")
     .select("id")
     .eq("id", parsed.data.customerId)
+    .eq("organization_id", context.organization.id)
+    .is("archived_at", null)
     .maybeSingle();
   if (!customer) redirect("/customers" as never);
 
@@ -371,6 +373,19 @@ export async function createFollowUpAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath(returnTo);
   redirect(`${returnTo}?followUp=created` as never);
+}
+
+export async function updateFollowUpAction(formData: FormData) {
+  const returnTo = String(formData.get("returnTo") ?? "/follow-ups");
+  const parsed = followUpUpdateSchema.safeParse(formValues(formData));
+  if (!parsed.success) redirect(`${returnTo}?error=validation` as never);
+  const context = await workspaceOrRedirect();
+  const value = parsed.data;
+  const { data, error } = await context.supabase.from("follow_ups").update({ due_at: value.dueAt, note: emptyToNull(value.note) }).eq("id", value.followUpId).eq("organization_id", context.organization.id).eq("customer_id", value.customerId).neq("status", "completed").select("id").maybeSingle();
+  if (error || !data) redirect(`${returnTo}?error=${encodeURIComponent(safeDatabaseError(error))}` as never);
+  await log(context, "follow_up_updated", "follow_up", data.id);
+  revalidatePath("/dashboard"); revalidatePath("/follow-ups"); revalidatePath(`/customers/${value.customerId}`);
+  redirect(`${returnTo}?followUp=updated` as never);
 }
 
 export async function archiveCompanyAction(formData: FormData) {
@@ -423,6 +438,9 @@ export async function completeFollowUpAction(formData: FormData) {
     .from("follow_ups")
     .update({ status: "completed", completed_at: new Date().toISOString() })
     .eq("id", followUpId)
+    .eq("customer_id", customerId)
+    .eq("organization_id", context.organization.id)
+    .neq("status", "completed")
     .select("id")
     .maybeSingle();
 

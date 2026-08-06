@@ -13,4 +13,6 @@ export const customerSchema = z.object({
   fullName: z.string().trim().min(2).max(160), customerType: z.enum(["individual", "employee", "dependent", "corporate_contact"]), phone, nationality: optionalText(80), email: z.string().trim().email().optional().or(z.literal("")), whatsappNumber: optionalText(32), passportNumber: optionalText(80), emiratesIdNumber: optionalText(80), companyId: z.string().uuid().optional().or(z.literal("")), branchId: z.string().uuid().optional().or(z.literal("")), dateOfBirth: z.string().date().optional().or(z.literal("")), gender: z.enum(["female", "male", "other", "prefer_not_to_say"]).optional().or(z.literal("")), residentialAddress: optionalText(500), sponsorName: optionalText(), sponsorCompany: optionalText(), visaType: optionalText(), profession: optionalText(), notes: optionalText(1000),
 }).superRefine((value, ctx) => { if (value.branchId && !value.companyId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["branchId"], message: "Select a company before selecting a branch." }); });
 
-export const followUpSchema = z.object({ customerId: z.string().uuid(), dueAt: z.string().datetime(), note: optionalText(1000) });
+const followUpDateTime = z.string().trim().min(1).refine((value) => !Number.isNaN(Date.parse(value)), "Enter a valid due date.").transform((value) => new Date(value).toISOString());
+export const followUpSchema = z.object({ customerId: z.string().uuid(), dueAt: followUpDateTime, note: optionalText(1000) });
+export const followUpUpdateSchema = followUpSchema.extend({ followUpId: z.string().uuid() });

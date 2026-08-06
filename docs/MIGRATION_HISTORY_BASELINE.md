@@ -24,6 +24,10 @@ Do not run `db push` before the final command shows every Stage 2-5 version as a
 
 No repair ran in this stage because the CLI account lacks project Management API permission. This is intentionally not represented as a completed baseline.
 
+## Pending Batch 5C manual migration
+
+`20260806195000_stage_5_follow_up_workflow_extension.sql` was created locally for manual Supabase SQL Editor application. It has not been applied remotely. After the owner applies and verifies it, include version `20260806195000` in the future ledger-repair review; do not mark it applied before confirming the live schema matches.
+
 ## Future rules
 
 Create migrations with `supabase migration new`, review them, apply them through the linked CLI workflow, and verify `migration list`. Do not use SQL Editor as the only source of a production schema change.

@@ -1,23 +1,36 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { CustomerForm } from "@/app/customers/customer-form";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { createCustomerAction } from "@/features/crm/actions";
+import { updateCustomerAction } from "@/features/crm/actions";
+import { isSafeUuid } from "@/features/crm/customer-utils";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewCustomer({
+export default async function EditCustomer({
+  params,
   searchParams,
 }: {
+  params: Promise<{ customerId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await getWorkspaceContext();
   if (!context) redirect("/account-inactive" as never);
 
-  const params = await searchParams;
-  const error = typeof params.error === "string" ? params.error : "";
-  const [{ data: companies }, { data: branches }] = await Promise.all([
+  const { customerId } = await params;
+  if (!isSafeUuid(customerId)) notFound();
+
+  const queryParams = await searchParams;
+  const error = typeof queryParams.error === "string" ? queryParams.error : "";
+  const [{ data: customer }, { data: companies }, { data: branches }] = await Promise.all([
+    context.supabase
+      .from("customers")
+      .select("*")
+      .eq("organization_id", context.organization.id)
+      .eq("id", customerId)
+      .is("archived_at", null)
+      .maybeSingle(),
     context.supabase
       .from("companies")
       .select("id,name")
@@ -32,18 +45,21 @@ export default async function NewCustomer({
       .order("name"),
   ]);
 
+  if (!customer) notFound();
+
   return (
     <WorkspaceShell organizationName={context.organization.name}>
       <header className="page-heading">
-        <Link href="/customers">Back to customers</Link>
-        <h1>Add customer</h1>
+        <Link href={`/customers/${customer.id}`}>Back to customer</Link>
+        <h1>Edit customer</h1>
         {error && <p className="form-error">{decodeURIComponent(error)}</p>}
       </header>
       <CustomerForm
-        action={createCustomerAction}
+        action={updateCustomerAction}
+        customer={customer}
         companies={companies ?? []}
         branches={branches ?? []}
-        submitLabel="Create customer"
+        submitLabel="Save changes"
       />
     </WorkspaceShell>
   );

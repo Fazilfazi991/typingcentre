@@ -1,0 +1,9 @@
+@media (min-width: 761px) and (max-width: 800px) {
+  .desktop-table {
+    display: none;
+  }
+
+  .mobile-card-list {
+    display: grid;
+  }
+}

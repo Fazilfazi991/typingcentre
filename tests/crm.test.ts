@@ -1,4 +1,13 @@
 import { describe, expect, it } from "vitest";
+import {
+  branchBelongsToCompany,
+  customerArchiveSchema,
+  customerCanMutate,
+  customerDatabaseError,
+  customerDetailPath,
+  customerEditPath,
+  isSafeUuid,
+} from "@/features/crm/customer-utils";
 import { branchSchema, companySchema, customerSchema, followUpSchema } from "@/features/crm/schemas";
 import { listParams, maskEmiratesId, maskPassport, safeDatabaseError } from "@/lib/workspace/utils";
 
@@ -13,6 +22,21 @@ describe("Stage 5 CRM validation", () => {
     const branchId = "7e18e713-93dd-4c3f-9b12-3a2f8868d9c0";
     expect(customerSchema.safeParse({ fullName: "Amina Test", customerType: "individual", phone: "+971500000000", branchId }).success).toBe(false);
     expect(customerSchema.safeParse({ fullName: "Amina Test", customerType: "individual", phone: "+971500000000", companyId: branchId, branchId }).success).toBe(true);
+  });
+
+  it("validates customer archive and safe UUID inputs", () => {
+    const customerId = "7e18e713-93dd-4c3f-9b12-3a2f8868d9c0";
+    expect(customerArchiveSchema.safeParse({ customerId }).success).toBe(true);
+    expect(customerArchiveSchema.safeParse({ customerId: "not-a-uuid" }).success).toBe(false);
+    expect(isSafeUuid(customerId)).toBe(true);
+    expect(isSafeUuid("not-a-uuid")).toBe(false);
+  });
+
+  it("checks customer company and branch relationship compatibility", () => {
+    const companyId = "7e18e713-93dd-4c3f-9b12-3a2f8868d9c0";
+    expect(branchBelongsToCompany({ company_id: companyId }, companyId)).toBe(true);
+    expect(branchBelongsToCompany({ company_id: companyId }, "a3a0c9d0-8903-4c46-a1fa-459c5a053e59")).toBe(false);
+    expect(branchBelongsToCompany(null, companyId)).toBe(false);
   });
 
   it("validates follow-up timestamps", () => {
@@ -35,5 +59,20 @@ describe("Stage 5 CRM display and list safety", () => {
   it("maps database failures without exposing internals", () => {
     expect(safeDatabaseError({ code: "23505", message: "customers_active_passport_idx" })).toBe("A record with one of those unique details already exists.");
     expect(safeDatabaseError({ code: "XX000", message: "SQL details" })).toBe("We could not save that change. Please try again.");
+  });
+
+  it("maps customer-specific archive and duplicate errors safely", () => {
+    expect(customerDatabaseError({ code: "23505", message: "customers_active_passport_idx" })).toBe("A customer with this passport number already exists.");
+    expect(customerDatabaseError({ code: "23505", message: "customers_active_emirates_id_idx" })).toBe("A customer with this Emirates ID already exists.");
+    expect(customerDatabaseError({ message: "Selected branch does not belong to the selected company" })).toBe("Select a branch that belongs to the selected company.");
+    expect(customerDatabaseError({ message: "raw sql detail" })).toBeNull();
+  });
+
+  it("generates customer routes and hides archived mutation actions", () => {
+    const customerId = "7e18e713-93dd-4c3f-9b12-3a2f8868d9c0";
+    expect(customerDetailPath(customerId)).toBe(`/customers/${customerId}`);
+    expect(customerEditPath(customerId)).toBe(`/customers/${customerId}/edit`);
+    expect(customerCanMutate({ archived_at: null })).toBe(true);
+    expect(customerCanMutate({ archived_at: "2026-08-06T10:00:00.000Z" })).toBe(false);
   });
 });

@@ -73,6 +73,11 @@ async function validateCustomerRelationship(
   return null;
 }
 
+async function validateFollowUpCustomer(context: Awaited<ReturnType<typeof workspaceOrRedirect>>, customerId: string) {
+  const { data: customer } = await context.supabase.from("customers").select("id").eq("id", customerId).eq("organization_id", context.organization.id).is("archived_at", null).maybeSingle();
+  return customer ? null : "The selected customer is unavailable.";
+}
+
 function safeCustomerError(error: { code?: string; message?: string } | null | undefined) {
   return customerDatabaseError(error) ?? safeDatabaseError(error);
 }
@@ -381,6 +386,8 @@ export async function updateFollowUpAction(formData: FormData) {
   if (!parsed.success) redirect(`${returnTo}?error=validation` as never);
   const context = await workspaceOrRedirect();
   const value = parsed.data;
+  const customerError = await validateFollowUpCustomer(context, value.customerId);
+  if (customerError) redirect(`${returnTo}?error=${encodeURIComponent(customerError)}` as never);
   const { data, error } = await context.supabase.from("follow_ups").update({ due_at: value.dueAt, note: emptyToNull(value.note) }).eq("id", value.followUpId).eq("organization_id", context.organization.id).eq("customer_id", value.customerId).neq("status", "completed").select("id").maybeSingle();
   if (error || !data) redirect(`${returnTo}?error=${encodeURIComponent(safeDatabaseError(error))}` as never);
   await log(context, "follow_up_updated", "follow_up", data.id);

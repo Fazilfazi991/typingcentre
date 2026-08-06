@@ -43,6 +43,10 @@ describe("Stage 5 CRM validation", () => {
     expect(followUpSchema.safeParse({ customerId: "7e18e713-93dd-4c3f-9b12-3a2f8868d9c0", dueAt: "2026-08-15T09:00:00.000Z" }).success).toBe(true);
     expect(followUpSchema.safeParse({ customerId: "invalid", dueAt: "tomorrow" }).success).toBe(false);
   });
+
+  it("accepts native datetime-local values for follow-ups", () => {
+    expect(followUpSchema.safeParse({ customerId: "7e18e713-93dd-4c3f-9b12-3a2f8868d9c0", dueAt: "2026-08-15T09:00", note: "Call" }).success).toBe(true);
+  });
 });
 
 describe("Stage 5 CRM display and list safety", () => {

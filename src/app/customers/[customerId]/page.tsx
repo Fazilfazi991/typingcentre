@@ -116,7 +116,9 @@ export default async function CustomerDetail({
                     <b>{item.status}</b>
                     <small>{item.note || "No note"}</small>
                   </span>
-                  <time>{new Date(item.due_at).toLocaleString()}</time>
+                  <time>
+                    {new Date(item.due_at).toLocaleString()} {item.status !== "completed" && <Link href={`/follow-ups/${item.id}/edit`}>Edit</Link>}
+                  </time>
                 </div>
               ))}
             </div>

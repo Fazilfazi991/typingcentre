@@ -41,6 +41,7 @@ describe("Supabase foundation files", () => {
     expect(hostedQaSeed).toContain("slug = 'al-noor-typing-centre'");
     expect(hostedQaSeed).toContain("set_config('request.jwt.claim.sub'");
     expect(hostedQaSeed).toContain("QA-DEMO-DOC-");
+    expect(hostedQaSeed).not.toContain("display_name");
     expect(hostedQaSeed).not.toMatch(/auth\.users/i);
   });
 });

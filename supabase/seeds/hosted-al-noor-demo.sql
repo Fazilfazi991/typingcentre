@@ -46,11 +46,11 @@ begin
   from demo
   where not exists (select 1 from public.customers c where c.organization_id = target_organization_id and c.email = lower(replace(demo.full_name, ' ', '.')) || '@demo.renewtrack.invalid');
 
-  insert into public.documents (organization_id, document_type_id, customer_id, document_number, display_name, issued_on, expires_on, status, notes)
+  insert into public.documents (organization_id, document_type_id, customer_id, document_number, issued_on, expires_on, status, notes)
   select target_organization_id,
     (select id from public.organization_document_types where organization_id = target_organization_id and name = case (n % 4) when 0 then 'Passport' when 1 then 'Emirates ID' when 2 then 'Labour Card' else 'Medical Insurance' end),
     (select id from public.customers where organization_id = target_organization_id and email like '%@demo.renewtrack.invalid' order by email offset ((n - 1) % 15) limit 1),
-    'QA-DEMO-DOC-' || lpad(n::text, 3, '0'), 'QA Demo Document ' || lpad(n::text, 3, '0'), current_date - interval '1 year',
+    'QA-DEMO-DOC-' || lpad(n::text, 3, '0'), current_date - interval '1 year',
     case when n <= 5 then current_date - n when n <= 11 then current_date + (n - 5) when n <= 21 then current_date + (n - 3) else current_date + (n + 45) end,
     case when n >= 33 then 'renewal_in_progress'::public.document_status when n <= 5 then 'expired'::public.document_status when n <= 11 then 'urgent'::public.document_status else 'valid'::public.document_status end,
     'Hosted QA demo record'

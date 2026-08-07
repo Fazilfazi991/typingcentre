@@ -141,11 +141,9 @@ export default async function Dashboard() {
   return (
     <WorkspaceShell organizationName={context.organization.name} activePath="/dashboard">
       <header className="page-heading dashboard-hero">
-        <div>
-          <p className="eyebrow">Workspace overview</p>
-          <h1>Document Overview</h1>
-          <p>Monitor upcoming expiries and renewal actions.</p>
-        </div>
+        <span className="overview-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H10l2 2h5.5A2.5 2.5 0 0 1 20 7.5v10A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="M9 11h6M9 15h4"/></svg></span>
+        <div className="overview-copy"><h1>Document Overview</h1><p>Monitor upcoming expiries and renewal actions.</p></div>
+        <svg className="overview-waves" aria-hidden="true" viewBox="0 0 520 260" fill="none"><path d="M155 -16c32 77 125 93 211 143 56 33 102 72 144 136"/><path d="M188 -20c28 70 108 88 193 139 57 34 100 76 129 141"/><path d="M222 -24c25 63 93 86 177 136 55 33 96 77 112 144"/><path d="M259 -26c20 58 79 83 158 132 52 33 89 78 94 146"/><path d="M299 -27c15 52 64 81 137 129 49 32 79 79 73 148"/></svg>
       </header>
 
       <section className="metric-grid" aria-label="Document overview metrics">

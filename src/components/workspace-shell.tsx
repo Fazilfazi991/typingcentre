@@ -14,6 +14,7 @@ export async function WorkspaceShell({ organizationName, activePath, children }:
   const initials = organizationName.split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
   const name = workspace?.profile.full_name || workspace?.user.email?.split("@")[0] || "User";
   const role = workspace?.membership.role?.replace(/_/g, " ") || "Member";
+  const { count: unreadNotifications } = workspace ? await workspace.supabase.from("notifications").select("id", { count: "exact", head: true }).eq("organization_id", workspace.organization.id).is("read_at", null) : { count: 0 };
 
   return <main className="app-shell">
     <aside className="sidebar" aria-label="Workspace navigation">
@@ -26,8 +27,9 @@ export async function WorkspaceShell({ organizationName, activePath, children }:
     </aside>
     <section className="app-stage">
       <header className="topbar">
+        <Link className="topbar-brand" href="/dashboard" aria-label="RenewTrack dashboard"><span>RT</span><b>RenewTrack</b></Link>
         <div className="global-search" role="search"><input aria-label="Search customers, companies or documents" placeholder="Search customers, companies or documents" /><kbd>Ctrl K</kbd></div>
-        <div className="topbar-actions"><details className="create-menu"><summary className="new-button"><span aria-hidden>＋</span> New</summary><div><Link href="/customers/new">Customer</Link><Link href="/companies/new">Company</Link><Link href="/follow-ups">Follow-up</Link></div></details><button className="icon-button" aria-label="Notifications">♧<em>0</em></button><details className="profile-menu"><summary><span className="profile-avatar">{name.split(/\s+/).map((item) => item[0]).slice(0, 2).join("").toUpperCase()}</span><span className="profile-copy"><b>{role}</b><small>{name}</small></span><span aria-hidden>⌄</span></summary><div><form action={logoutAction}><button type="submit">Log out</button></form></div></details></div>
+        <div className="topbar-actions"><details className="create-menu"><summary className="new-button"><span aria-hidden>+</span> New</summary><div><Link href="/customers/new">Customer</Link><Link href="/companies/new">Company</Link><Link href="/follow-ups">Follow-up</Link></div></details><span className="header-divider" aria-hidden/><button className="icon-button notification-button" aria-label={`Notifications, ${unreadNotifications ?? 0} unread`}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>{(unreadNotifications ?? 0) > 0 && <em>{unreadNotifications}</em>}</button><span className="header-divider" aria-hidden/><details className="profile-menu"><summary><span className="profile-avatar">{name.split(/\s+/).map((item) => item[0]).slice(0, 2).join("").toUpperCase()}</span><span className="profile-copy"><b>{role}</b><small>{name}</small></span><span className="profile-chevron" aria-hidden>⌄</span></summary><div><form action={logoutAction}><button type="submit">Log out</button></form></div></details></div>
       </header>
       <section className="app-content">{children}</section>
     </section>

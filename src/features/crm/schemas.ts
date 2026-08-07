@@ -14,5 +14,7 @@ export const customerSchema = z.object({
 }).superRefine((value, ctx) => { if (value.branchId && !value.companyId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["branchId"], message: "Select a company before selecting a branch." }); });
 
 const followUpDateTime = z.string().trim().min(1).refine((value) => !Number.isNaN(Date.parse(value)), "Enter a valid due date.").transform((value) => new Date(value).toISOString());
-export const followUpSchema = z.object({ customerId: z.string().uuid(), dueAt: followUpDateTime, note: optionalText(1000) });
-export const followUpUpdateSchema = followUpSchema.extend({ followUpId: z.string().uuid() });
+const optionalUuid = z.string().uuid().optional().or(z.literal(""));
+export const followUpSchema = z.object({ customerId: optionalUuid, companyId: optionalUuid, dueAt: followUpDateTime, note: optionalText(1000) }).superRefine((value, ctx) => { if (!value.customerId && !value.companyId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["customerId"], message: "Select a customer or company." }); });
+export const followUpUpdateSchema = z.object({ followUpId: z.string().uuid(), customerId: optionalUuid, companyId: optionalUuid, dueAt: followUpDateTime, note: optionalText(1000) }).superRefine((value, ctx) => { if (!value.customerId && !value.companyId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["customerId"], message: "Select a customer or company." }); });
+export const completeFollowUpSchema = z.object({ followUpId: z.string().uuid(), customerResponse: optionalText(2000), nextDueAt: z.string().trim().optional().or(z.literal("")), nextNote: optionalText(1000) });

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { customerArchiveSchema, customerDatabaseError } from "@/features/crm/customer-utils";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { safeDatabaseError } from "@/lib/workspace/utils";
-import { branchSchema, companySchema, customerSchema, followUpSchema, followUpUpdateSchema } from "./schemas";
+import { branchSchema, companySchema, customerSchema, followUpSchema, followUpUpdateSchema, completeFollowUpSchema } from "./schemas";
 
 const emptyToNull = (value: string | undefined) => value?.trim() || null;
 
@@ -76,6 +76,18 @@ async function validateCustomerRelationship(
 async function validateFollowUpCustomer(context: Awaited<ReturnType<typeof workspaceOrRedirect>>, customerId: string) {
   const { data: customer } = await context.supabase.from("customers").select("id").eq("id", customerId).eq("organization_id", context.organization.id).is("archived_at", null).maybeSingle();
   return customer ? null : "The selected customer is unavailable.";
+}
+
+async function validateFollowUpRelationships(context: Awaited<ReturnType<typeof workspaceOrRedirect>>, customerId: string | null, companyId: string | null) {
+  if (!customerId && !companyId) return "Select a customer or company.";
+  const [{ data: customer }, { data: company }] = await Promise.all([
+    customerId ? context.supabase.from("customers").select("id,company_id").eq("id", customerId).eq("organization_id", context.organization.id).is("archived_at", null).maybeSingle() : Promise.resolve({ data: null }),
+    companyId ? context.supabase.from("companies").select("id").eq("id", companyId).eq("organization_id", context.organization.id).is("archived_at", null).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  if (customerId && !customer) return "The selected customer is unavailable.";
+  if (companyId && !company) return "The selected company is unavailable.";
+  if (customer && companyId && customer.company_id !== companyId) return "The selected customer does not belong to that company.";
+  return null;
 }
 
 function safeCustomerError(error: { code?: string; message?: string } | null | undefined) {
@@ -352,20 +364,15 @@ export async function createFollowUpAction(formData: FormData) {
   if (!parsed.success) redirect(`${returnTo}?error=validation` as never);
 
   const context = await workspaceOrRedirect();
-  const { data: customer } = await context.supabase
-    .from("customers")
-    .select("id")
-    .eq("id", parsed.data.customerId)
-    .eq("organization_id", context.organization.id)
-    .is("archived_at", null)
-    .maybeSingle();
-  if (!customer) redirect("/customers" as never);
+  const customerId = emptyToNull(parsed.data.customerId); const companyId = emptyToNull(parsed.data.companyId);
+  const relationshipError = await validateFollowUpRelationships(context, customerId, companyId);
+  if (relationshipError) redirect(`${returnTo}?error=${encodeURIComponent(relationshipError)}` as never);
 
   const { data, error } = await context.supabase
     .from("follow_ups")
     .insert({
       organization_id: context.organization.id,
-      customer_id: customer.id,
+      customer_id: customerId, company_id: companyId, created_by: context.user.id,
       due_at: parsed.data.dueAt,
       note: emptyToNull(parsed.data.note),
     })
@@ -386,12 +393,12 @@ export async function updateFollowUpAction(formData: FormData) {
   if (!parsed.success) redirect(`${returnTo}?error=validation` as never);
   const context = await workspaceOrRedirect();
   const value = parsed.data;
-  const customerError = await validateFollowUpCustomer(context, value.customerId);
-  if (customerError) redirect(`${returnTo}?error=${encodeURIComponent(customerError)}` as never);
-  const { data, error } = await context.supabase.from("follow_ups").update({ due_at: value.dueAt, note: emptyToNull(value.note) }).eq("id", value.followUpId).eq("organization_id", context.organization.id).eq("customer_id", value.customerId).neq("status", "completed").select("id").maybeSingle();
+  const customerId = emptyToNull(value.customerId); const companyId = emptyToNull(value.companyId); const relationshipError = await validateFollowUpRelationships(context, customerId, companyId);
+  if (relationshipError) redirect(`${returnTo}?error=${encodeURIComponent(relationshipError)}` as never);
+  const { data, error } = await context.supabase.from("follow_ups").update({ customer_id: customerId, company_id: companyId, due_at: value.dueAt, note: emptyToNull(value.note) }).eq("id", value.followUpId).eq("organization_id", context.organization.id).neq("status", "completed").select("id").maybeSingle();
   if (error || !data) redirect(`${returnTo}?error=${encodeURIComponent(safeDatabaseError(error))}` as never);
   await log(context, "follow_up_updated", "follow_up", data.id);
-  revalidatePath("/dashboard"); revalidatePath("/follow-ups"); revalidatePath(`/customers/${value.customerId}`);
+  revalidatePath("/dashboard"); revalidatePath("/follow-ups"); if (customerId) revalidatePath(`/customers/${customerId}`); if (companyId) revalidatePath(`/companies/${companyId}`);
   redirect(`${returnTo}?followUp=updated` as never);
 }
 
@@ -438,23 +445,30 @@ export async function archiveCustomerAction(formData: FormData) {
 }
 
 export async function completeFollowUpAction(formData: FormData) {
-  const followUpId = String(formData.get("followUpId") ?? "");
-  const customerId = String(formData.get("customerId") ?? "");
+  const parsed = completeFollowUpSchema.safeParse(formValues(formData));
+  if (!parsed.success) redirect("/follow-ups?error=validation" as never);
   const context = await workspaceOrRedirect();
+  const value = parsed.data;
+  const { data: current } = await context.supabase.from("follow_ups").select("id,customer_id,company_id,status,next_follow_up_id").eq("id", value.followUpId).eq("organization_id", context.organization.id).maybeSingle();
+  if (!current || current.status === "completed") redirect("/follow-ups?error=unavailable" as never);
+  let nextId: string | null = null;
+  if (value.nextDueAt) {
+    const { data: next, error: nextError } = await context.supabase.from("follow_ups").insert({ organization_id: context.organization.id, customer_id: current.customer_id, company_id: current.company_id, due_at: new Date(value.nextDueAt).toISOString(), note: emptyToNull(value.nextNote), created_by: context.user.id }).select("id").single();
+    if (nextError || !next) redirect("/follow-ups?error=save" as never); nextId = next.id;
+  }
   const { data, error } = await context.supabase
     .from("follow_ups")
-    .update({ status: "completed", completed_at: new Date().toISOString() })
-    .eq("id", followUpId)
-    .eq("customer_id", customerId)
+    .update({ status: "completed", completed_at: new Date().toISOString(), customer_response: emptyToNull(value.customerResponse), next_follow_up_id: nextId })
+    .eq("id", value.followUpId)
     .eq("organization_id", context.organization.id)
     .neq("status", "completed")
     .select("id")
     .maybeSingle();
 
-  if (error || !data) redirect(`/customers/${customerId}?error=${encodeURIComponent(safeDatabaseError(error))}` as never);
+  if (error || !data) redirect(`/follow-ups?error=${encodeURIComponent(safeDatabaseError(error))}` as never);
 
   await log(context, "follow_up_completed", "follow_up", data.id);
   revalidatePath("/dashboard");
-  revalidatePath(`/customers/${customerId}`);
-  redirect(`/customers/${customerId}?followUp=completed` as never);
+  revalidatePath("/follow-ups"); if (current.customer_id) revalidatePath(`/customers/${current.customer_id}`); if (current.company_id) revalidatePath(`/companies/${current.company_id}`);
+  redirect("/follow-ups?followUp=completed" as never);
 }

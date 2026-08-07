@@ -1,1 +1,5 @@
-export default function Loading() { return <main aria-busy="true" aria-label="Loading RenewTrack" style={{ padding: 24 }}>Loading RenewTrack…</main>; }
+import { DashboardShellSkeleton } from "@/components/dashboard-shell-skeleton";
+
+export default function Loading() {
+  return <DashboardShellSkeleton />;
+}

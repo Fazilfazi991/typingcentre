@@ -34,6 +34,14 @@ function activityIcon(entityType: string) {
   return "RT";
 }
 
+function MetricGlyph({ name }: { name: "alert" | "clock" | "calendar" | "checklist" }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (name === "alert") return <svg viewBox="0 0 24 24" {...common}><circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/></svg>;
+  if (name === "clock") return <svg viewBox="0 0 24 24" {...common}><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>;
+  if (name === "calendar") return <svg viewBox="0 0 24 24" {...common}><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M9 14h.01M15 14h.01M9 17h.01M15 17h.01"/></svg>;
+  return <svg viewBox="0 0 24 24" {...common}><path d="m5 7 2 2 3-3M5 14l2 2 3-3M12 7h7M12 14h7"/></svg>;
+}
+
 export default async function Dashboard() {
   const context = await getWorkspaceContext();
   if (!context) redirect("/account-inactive" as never);
@@ -125,10 +133,10 @@ export default async function Dashboard() {
   ]);
 
   const cards = [
-    ["Expired", expired ?? 0, "EX", "danger", "Requires action", "/customers"],
-    ["Expiring in 7 days", week ?? 0, "7D", "warning", "Contact customers soon", "/customers"],
-    ["Expiring in 30 days", month ?? 0, "30", "info", "Upcoming renewals", "/customers"],
-    ["Follow-ups today", followUps ?? 0, "FU", "purple", "Scheduled today", "/follow-ups"],
+    ["Expired", expired ?? 0, "alert", "danger", "Requires action", "/customers"],
+    ["Expiring in 7 days", week ?? 0, "clock", "warning", "Contact customers soon", "/customers"],
+    ["Expiring in 30 days", month ?? 0, "calendar", "info", "Upcoming renewals", "/customers"],
+    ["Follow-ups today", followUps ?? 0, "checklist", "purple", "Scheduled today", "/follow-ups"],
   ] as const;
   const health = [
     ["Valid", valid ?? 0, "success"],
@@ -150,15 +158,12 @@ export default async function Dashboard() {
         {cards.map(([label, value, icon, color, description, href]) => (
           <Link href={href} className={`metric-card metric-${color}`} key={label}>
             <span className="metric-icon" aria-hidden>
-              {icon}
+              <MetricGlyph name={icon} />
             </span>
             <span className="metric-copy">
               <small>{label}</small>
               <strong>{value}</strong>
               <em>{description}</em>
-            </span>
-            <span className="metric-arrow" aria-hidden>
-              &gt;
             </span>
           </Link>
         ))}

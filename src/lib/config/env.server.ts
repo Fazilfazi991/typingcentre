@@ -9,7 +9,7 @@ const serverSchema = z.object({
   CLOUDFLARE_R2_BUCKET_NAME: z.string().min(1).optional(),
   CLOUDFLARE_R2_PUBLIC_ENDPOINT: z.string().url().optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
-  EMAIL_FROM: z.string().email().optional(),
+  RESEND_FROM_EMAIL: z.string().min(3).optional(),
   CRON_SECRET: z.string().min(1).optional(),
   SENTRY_DSN: z.string().url().optional(),
 });
@@ -23,7 +23,7 @@ export function getServerEnv() {
     CLOUDFLARE_R2_BUCKET_NAME: process.env.CLOUDFLARE_R2_BUCKET_NAME,
     CLOUDFLARE_R2_PUBLIC_ENDPOINT: process.env.CLOUDFLARE_R2_PUBLIC_ENDPOINT,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
-    EMAIL_FROM: process.env.EMAIL_FROM,
+    RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
     CRON_SECRET: process.env.CRON_SECRET,
     SENTRY_DSN: process.env.SENTRY_DSN,
   });

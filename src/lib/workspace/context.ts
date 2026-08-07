@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -12,17 +13,19 @@ export type WorkspaceContext = {
   subscription: { plan: string; status: string };
 };
 
-export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
+export const getWorkspaceContext = cache(async (): Promise<WorkspaceContext | null> => {
   noStore();
   const supabase = await getSupabaseServerClient();
   if (!supabase) return null;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login" as never);
 
-  const { data: profile } = await supabase.from("profiles").select("id, full_name, platform_role, status").eq("id", user.id).maybeSingle();
+  const [{ data: profile }, { data: membership }] = await Promise.all([
+    supabase.from("profiles").select("id, full_name, platform_role, status").eq("id", user.id).maybeSingle(),
+    supabase.from("organization_memberships").select("organization_id, role, status, is_primary_owner").eq("user_id", user.id).eq("is_primary_owner", true).maybeSingle(),
+  ]);
   if (!profile || profile.status !== "active" || profile.platform_role === "platform_admin") redirect("/account-inactive" as never);
 
-  const { data: membership } = await supabase.from("organization_memberships").select("organization_id, role, status, is_primary_owner").eq("user_id", user.id).eq("is_primary_owner", true).maybeSingle();
   if (!membership || membership.status !== "active") redirect("/account-inactive" as never);
 
   const [{ data: organization }, { data: subscription }] = await Promise.all([
@@ -32,4 +35,4 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
   if (!organization || !subscription) redirect("/account-inactive" as never);
 
   return { supabase, user: { id: user.id, email: user.email }, profile, membership, organization, subscription };
-}
+});

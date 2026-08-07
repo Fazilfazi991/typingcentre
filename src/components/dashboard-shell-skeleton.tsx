@@ -1,4 +1,4 @@
-const navigationItems = Array.from({ length: 8 });
+const navigationItems = Array.from({ length: 7 });
 const metricCards = Array.from({ length: 4 });
 
 export function DashboardShellSkeleton() {
@@ -21,7 +21,7 @@ export function DashboardShellSkeleton() {
           <div className="skeleton-metrics">
             {metricCards.map((_, index) => <span className="skeleton-metric" key={index}><i className="skeleton-icon" /><b><i className="skeleton-line label" /><i className="skeleton-line count" /><i className="skeleton-line caption" /></b></span>)}
           </div>
-          <div className="skeleton-panels"><span className="skeleton-panel" /><span className="skeleton-panel" /></div>
+          <div className="skeleton-panels"><span className="skeleton-panel" /><span className="skeleton-panel compact" /></div>
         </section>
       </section>
     </main>

@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
 import Link from "next/link";
 import { logoutAction } from "@/app/(auth)/actions";
 import { getWorkspaceContext } from "@/lib/workspace/context";

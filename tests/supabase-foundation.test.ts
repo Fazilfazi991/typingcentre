@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(resolve(process.cwd(), "supabase/migrations/20260805162339_initial_multi_tenant_schema.sql"), "utf8");
 const seed = readFileSync(resolve(process.cwd(), "supabase/seed.sql"), "utf8");
+const hostedQaSeed = readFileSync(resolve(process.cwd(), "supabase/seeds/hosted-al-noor-demo.sql"), "utf8");
 
 describe("Supabase foundation files", () => {
   it("defines all core tenant tables and composite tenant relationships", () => {
@@ -34,5 +35,12 @@ describe("Supabase foundation files", () => {
     expect(seed).toContain("generate_series(1, 36)");
     expect(seed).toContain("current_date + (n - 5)");
     expect(seed).toContain("renewal_in_progress");
+  });
+
+  it("keeps the hosted QA seed tenant-scoped and free of Auth mutations", () => {
+    expect(hostedQaSeed).toContain("slug = 'al-noor-typing-centre'");
+    expect(hostedQaSeed).toContain("set_config('request.jwt.claim.sub'");
+    expect(hostedQaSeed).toContain("QA-DEMO-DOC-");
+    expect(hostedQaSeed).not.toMatch(/auth\.users/i);
   });
 });

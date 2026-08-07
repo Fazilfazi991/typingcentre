@@ -26,3 +26,6 @@ Stage 2, Stage 3, and Stage 4 SQL were manually applied through the hosted SQL E
 - It does not create user accounts or implement authentication flows.
 - Stage 4 enables RLS and creates tenant-isolation policies for the current tables.
 - It does not create Storage buckets or R2 upload flows.
+## Hosted QA data
+
+`seed.sql` is local-only. For the deployed fictional Al Noor QA tenant, follow [Hosted QA Demo Data](../docs/HOSTED_QA_DEMO_DATA.md) and run its guarded SQL Editor script manually.

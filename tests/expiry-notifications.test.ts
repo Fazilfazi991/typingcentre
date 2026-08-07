@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildExpiryEmail, digestDocumentCount } from "@/lib/email/expiry-email";
-import { buildDigestFromRows } from "@/lib/notifications/expiry-notifications";
+import {
+  buildDigestFromRows,
+  groupDocumentsByOrganization,
+  resolveTenantOwnerEmails,
+} from "@/lib/notifications/expiry-notifications";
 
 const now = new Date("2026-08-07T05:00:00Z");
 const activeType = { name: "Passport", is_active: true };
@@ -72,4 +76,70 @@ describe("expiry notification digest", () => {
   });
   it("does not create a digest for an empty tenant", () =>
     expect(digestDocumentCount(buildDigestFromRows([], now))).toBe(0));
+  it("keeps tenant A and B recipients and document digests completely separate", () => {
+    const recipients = resolveTenantOwnerEmails(
+      [
+        { organization_id: "tenant-a", user_id: "owner-a" },
+        { organization_id: "tenant-b", user_id: "owner-b" },
+      ],
+      [
+        { id: "owner-a", email: "owner-a@example.com", status: "active" },
+        { id: "owner-b", email: "owner-b@example.com", status: "active" },
+      ],
+    );
+    const documents = groupDocumentsByOrganization([
+      {
+        ...row("2026-08-07"),
+        organization_id: "tenant-a",
+        customers: {
+          full_name: "A Customer",
+          is_active: true,
+          status: "active",
+          archived_at: null,
+        },
+      },
+      {
+        ...row("2026-08-10"),
+        organization_id: "tenant-b",
+        customers: {
+          full_name: "B Customer",
+          is_active: true,
+          status: "active",
+          archived_at: null,
+        },
+      },
+    ]);
+    const emailA = buildExpiryEmail({
+      organizationName: "Tenant A",
+      digest: buildDigestFromRows(documents.get("tenant-a")!, now),
+      dashboardUrl: "https://app.example.com/documents",
+    });
+    const emailB = buildExpiryEmail({
+      organizationName: "Tenant B",
+      digest: buildDigestFromRows(documents.get("tenant-b")!, now),
+      dashboardUrl: "https://app.example.com/documents",
+    });
+    expect(recipients.get("tenant-a")).toBe("owner-a@example.com");
+    expect(recipients.get("tenant-b")).toBe("owner-b@example.com");
+    expect(recipients.get("tenant-a")).not.toBe(recipients.get("tenant-b"));
+    expect(emailA.html).toContain("A Customer");
+    expect(emailA.html).not.toContain("B Customer");
+    expect(emailB.html).toContain("B Customer");
+    expect(emailB.html).not.toContain("A Customer");
+  });
+  it("safely skips missing, inactive, and malformed primary owner emails", () => {
+    const recipients = resolveTenantOwnerEmails(
+      [
+        { organization_id: "tenant-a", user_id: "a" },
+        { organization_id: "tenant-b", user_id: "b" },
+        { organization_id: "tenant-c", user_id: "c" },
+      ],
+      [
+        { id: "a", email: "not-an-email", status: "active" },
+        { id: "b", email: null, status: "active" },
+        { id: "c", email: "inactive@example.com", status: "suspended" },
+      ],
+    );
+    expect(recipients.size).toBe(0);
+  });
 });

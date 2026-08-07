@@ -11,7 +11,11 @@ import { publicEnv } from "@/lib/config/env.public";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type Relation<T> = T | T[] | null | undefined;
+type OwnerMembership = { organization_id: string; user_id: string };
+type OwnerProfile = { id: string; email: string | null; status: string };
 const one = <T>(value: Relation<T>) => (Array.isArray(value) ? value[0] : value);
+const isValidEmail = (value: string | null | undefined): value is string =>
+  Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
 const active = (
   record: { is_active?: boolean; status?: string; archived_at?: string | null } | null | undefined,
 ) =>
@@ -32,6 +36,27 @@ export function addDocumentToDigest(digest: ExpiryDigest, document: ExpiryEmailD
     digest.next7Days.push(document);
   else if (document.daysRemaining >= 8 && document.daysRemaining <= 30)
     digest.next30Days.push(document);
+}
+
+export function resolveTenantOwnerEmails(memberships: OwnerMembership[], profiles: OwnerProfile[]) {
+  const activeProfiles = new Map(
+    profiles
+      .filter((profile) => profile.status === "active" && isValidEmail(profile.email))
+      .map((profile) => [profile.id, profile.email]),
+  );
+  return new Map(
+    memberships.flatMap((membership) => {
+      const email = activeProfiles.get(membership.user_id);
+      return email ? [[membership.organization_id, email] as const] : [];
+    }),
+  );
+}
+
+export function groupDocumentsByOrganization(rows: Array<{ organization_id: string }>) {
+  const groups = new Map<string, any[]>();
+  for (const row of rows)
+    groups.set(row.organization_id, [...(groups.get(row.organization_id) ?? []), row]);
+  return groups;
 }
 
 export function buildDigestFromRows(rows: any[], now = new Date()) {
@@ -118,18 +143,8 @@ export async function runDailyExpiryNotifications(now = new Date()) {
         .eq("status", "active")
     : { data: [], error: null };
   if (profilesError) throw profilesError;
-  const owners = new Map(
-    (memberships ?? []).map((membership: any) => [
-      membership.organization_id,
-      (profiles ?? []).find((profile: any) => profile.id === membership.user_id)?.email,
-    ]),
-  );
-  const documentsByOrganization = new Map<string, any[]>();
-  for (const row of rows ?? [])
-    documentsByOrganization.set(row.organization_id, [
-      ...(documentsByOrganization.get(row.organization_id) ?? []),
-      row,
-    ]);
+  const owners = resolveTenantOwnerEmails(memberships ?? [], profiles ?? []);
+  const documentsByOrganization = groupDocumentsByOrganization(rows ?? []);
   let sent = 0,
     skipped = 0,
     failed = 0;

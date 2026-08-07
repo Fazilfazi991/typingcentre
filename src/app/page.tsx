@@ -1,3 +1,5 @@
-import { PrototypeFrame } from "@/components/legacy/prototype-frame";
+import { redirect } from "next/navigation";
 
-export default function HomePage() { return <PrototypeFrame />; }
+export default function HomePage() {
+  redirect("/dashboard");
+}

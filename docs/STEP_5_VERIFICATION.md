@@ -29,4 +29,4 @@ R2, uploads, reminders, billing, payments, Staff, OCR and mobile work remain out
 
 Batch 5B and Batch 5C are functionally implemented but not formally signed off. Final live production browser QA, responsive/accessibility verification and console/network inspection remain deferred. Stage 5 remains unsigned until those checks are completed.
 
-Stage 6 has not started.
+Stage 6 Phase 6A has started. This does not change the deferred Stage 5 QA backlog or its unsigned status.

@@ -2,6 +2,8 @@
 
 The committed `src/types/database.generated.ts` remains a placeholder. The local CLI could not generate remote types because its account lacks Management API permission for project `swnuikslynuneucetjub`.
 
+This remains a Stage 6 limitation. After the Stage 6 migration is manually applied, regenerate types before relying on strongly typed document/version queries.
+
 After the owner authorises the CLI or supplies an approved access token outside Git, run:
 
 ```powershell

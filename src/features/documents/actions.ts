@@ -8,13 +8,17 @@ import {
   createDocumentDownloadUrl,
   createDocumentUploadUrl,
   inspectDocumentObject,
+  readDocumentObject,
 } from "@/lib/r2/objects";
+import { extractDocument } from "@/lib/document-ai/extract-document";
 import { getR2Configuration } from "@/lib/r2/client";
 import {
   createDocumentObjectKey,
   documentSignedAccessSchema,
   documentUploadSessionSchema,
   documentVersionIdSchema,
+  documentExtractionConfirmationSchema,
+  documentExtractionRequestSchema,
   normalizeOriginalFilename,
   validateDocumentFileMetadata,
 } from "./validation";
@@ -267,4 +271,60 @@ export async function createDocumentSignedAccessUrl(
   } catch {
     return { ok: false, message: "We could not prepare the document file. Please try again." };
   }
+}
+
+export async function extractUploadedDocument(input: unknown): Promise<SafeResult<{ extraction: unknown; provider: string; model: string }>> {
+  const parsed = documentExtractionRequestSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "The document is unavailable." };
+  const context = await workspaceOrUnavailable();
+  if (!context) return { ok: false, message: "Your workspace is unavailable." };
+  const { data: version } = await context.supabase.from("document_versions")
+    .select("id, document_id, object_key, mime_type, upload_status")
+    .eq("id", parsed.data.versionId).eq("document_id", parsed.data.documentId)
+    .eq("organization_id", context.organization.id).maybeSingle();
+  if (!version || version.upload_status !== "complete") return { ok: false, message: "Finish uploading the document before analysis." };
+  const { data: document } = await context.supabase.from("documents")
+    .select("id, extraction_status, extraction_attempts").eq("id", version.document_id).eq("organization_id", context.organization.id).maybeSingle();
+  if (!document) return { ok: false, message: "The document is unavailable." };
+  if (document.extraction_status === "confirmed" || document.extraction_status === "review_required")
+    return { ok: false, message: "This document has already been analyzed. Review it or upload a new version." };
+
+  await context.supabase.from("documents").update({ extraction_status: "processing", extraction_attempts: document.extraction_attempts + 1 } as any).eq("id", document.id);
+  try {
+    const bytes = await readDocumentObject(version.object_key);
+    const result = await extractDocument({ bytes, mimeType: version.mime_type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp", filename: "document" });
+    const { error } = await context.supabase.from("documents").update({
+      extraction_status: "review_required", extraction_provider: result.provider, extraction_model: result.model,
+      extracted_at: new Date().toISOString(), extraction_confidence: result.extraction.confidence,
+      extraction_warnings: result.extraction.warnings, extraction_data: result.extraction,
+    } as any).eq("id", document.id).eq("organization_id", context.organization.id);
+    if (error) return { ok: false, message: "We could not save the extraction for review." };
+    return { ok: true, data: { extraction: result.extraction, provider: result.provider, model: result.model } };
+  } catch {
+    await context.supabase.from("documents").update({ extraction_status: "failed" } as any).eq("id", document.id).eq("organization_id", context.organization.id);
+    return { ok: false, message: "We couldn't automatically read this document. You can retry or enter the details manually." };
+  }
+}
+
+export async function confirmDocumentExtraction(input: unknown): Promise<SafeResult<{ documentId: string }>> {
+  const parsed = documentExtractionConfirmationSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Review the document details and correct any invalid dates." };
+  const context = await workspaceOrUnavailable();
+  if (!context) return { ok: false, message: "Your workspace is unavailable." };
+  const { data: document } = await context.supabase.from("documents").select("id, customer_id, company_id")
+    .eq("id", parsed.data.documentId).eq("organization_id", context.organization.id).maybeSingle();
+  if (!document) return { ok: false, message: "The document is unavailable." };
+  const { data: type } = await context.supabase.from("organization_document_types").select("id")
+    .eq("id", parsed.data.documentTypeId).eq("organization_id", context.organization.id).eq("is_active", true).maybeSingle();
+  if (!type) return { ok: false, message: "Select an active document type." };
+  const { error } = await context.supabase.from("documents").update({
+    document_type_id: type.id, display_name: parsed.data.displayName, document_number: toNull(parsed.data.documentNumber),
+    issued_on: toNull(parsed.data.issueDate), expires_on: toNull(parsed.data.expiryDate), extraction_status: "confirmed",
+    extraction_data: parsed.data.extractionData,
+  } as any).eq("id", document.id).eq("organization_id", context.organization.id);
+  if (error) return { ok: false, message: safeDatabaseError(error) };
+  revalidatePath("/documents");
+  if (document.customer_id) revalidatePath(`/customers/${document.customer_id}`);
+  if (document.company_id) revalidatePath(`/companies/${document.company_id}`);
+  return { ok: true, data: { documentId: document.id } };
 }

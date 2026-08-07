@@ -55,6 +55,9 @@ export default async function CustomerDetail({
             <Link className="primary-button" href={customerEditPath(customer.id)}>
               Edit customer
             </Link>
+            <Link className="primary-button" href={`/documents/upload?customerId=${customer.id}`}>
+              Add document
+            </Link>
             <ArchiveDialog
               action={archiveCustomerAction}
               fields={{ customerId: customer.id }}
@@ -158,7 +161,8 @@ export default async function CustomerDetail({
         </article>
         <article className="panel">
           <h2>Documents and renewals</h2>
-          <p className="empty-state">Metadata and private files arrive in Stage 6.</p>
+          <p className="empty-state">Upload a scanned document and review AI-extracted data before it is saved.</p>
+          {canMutate && <Link className="text-link" href={`/documents/upload?customerId=${customer.id}`}>Upload &amp; Auto Fill</Link>}
         </article>
       </section>
     </WorkspaceShell>

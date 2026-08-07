@@ -49,6 +49,20 @@ export const documentUploadSessionSchema = z
   });
 
 export const documentVersionIdSchema = z.object({ versionId: z.string().uuid() });
+export const documentExtractionRequestSchema = z.object({ documentId: z.string().uuid(), versionId: z.string().uuid() });
+export const documentExtractionConfirmationSchema = z.object({
+  documentId: z.string().uuid(),
+  documentTypeId: z.string().uuid(),
+  displayName: z.string().trim().min(2).max(160),
+  documentNumber: optionalText(120),
+  issueDate: z.string().date().optional().or(z.literal("")),
+  expiryDate: z.string().date().optional().or(z.literal("")),
+  extractionData: z.record(z.unknown()),
+}).superRefine((value, ctx) => {
+  if (value.issueDate && value.expiryDate && value.issueDate >= value.expiryDate) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["expiryDate"], message: "Expiry date must be after issue date." });
+  }
+});
 export const documentSignedAccessSchema = z.object({
   documentId: z.string().uuid(),
   versionId: z.string().uuid().optional(),

@@ -44,6 +44,9 @@ export default async function CompanyDetail({ params }: { params: Promise<{ comp
             <Link className="primary-button" href={`/companies/${company.id}/edit`}>
               Edit company
             </Link>
+            <Link className="primary-button" href={`/documents/upload?companyId=${company.id}`}>
+              Add document
+            </Link>
             <ArchiveDialog
               action={archiveCompanyAction}
               fields={{ companyId: company.id }}
@@ -56,6 +59,11 @@ export default async function CompanyDetail({ params }: { params: Promise<{ comp
         )}
       </header>
       <section className="detail-grid">
+        <article className="panel">
+          <h2>Documents and renewals</h2>
+          <p className="empty-state">Upload a scanned document and review AI-extracted data before it is saved.</p>
+          <Link className="text-link" href={`/documents/upload?companyId=${company.id}`}>Upload &amp; Auto Fill</Link>
+        </article>
         <article className="panel">
           <h2>Overview</h2>
           <dl>

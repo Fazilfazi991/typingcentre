@@ -22,6 +22,15 @@ export async function inspectDocumentObject(objectKey: string) {
   );
 }
 
+export async function readDocumentObject(objectKey: string) {
+  const config = getR2Configuration();
+  const object = await getR2Client(config).send(
+    new GetObjectCommand({ Bucket: config.R2_BUCKET_NAME, Key: objectKey }),
+  );
+  if (!object.Body) throw new Error("Document object is unavailable.");
+  return new Uint8Array(await object.Body.transformToByteArray());
+}
+
 export async function createDocumentDownloadUrl(
   objectKey: string,
   mimeType: string,

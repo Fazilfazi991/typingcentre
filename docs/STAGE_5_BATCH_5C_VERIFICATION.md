@@ -9,4 +9,4 @@ Status: UI implemented; browser sign-off pending.
 
 Migration prepared: `20260806195000_stage_5_follow_up_workflow_extension.sql`. It is intentionally unapplied while the remote migration ledger remains unresolved. Until manual SQL Editor application is confirmed, company-only follow-ups, customer responses and next-follow-up scheduling are blocked.
 
-The project owner confirmed manual SQL Editor application. The UI now supports company-only, customer-only and combined relationships, separate customer responses, and optional linked next follow-ups. Typecheck, lint, 19 Vitest tests and production build passed. Live Amina/Daniel browser QA remains required before sign-off.
+The project owner confirmed manual SQL Editor application. The UI now supports company-only, customer-only and combined relationships, separate customer responses, and optional linked next follow-ups. Typecheck, lint, 19 Vitest tests and production build passed. Live Amina/Daniel browser QA, responsive verification, accessibility verification and console/network inspection are explicitly deferred. Batch 5C is implemented but unsigned.

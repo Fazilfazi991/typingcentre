@@ -4,7 +4,7 @@ import { getWorkspaceContext } from "@/lib/workspace/context";
 
 const nav = [
   ["Dashboard", "/dashboard", "⊞"], ["Customers", "/customers", "♙"], ["Companies", "/companies", "▥"],
-  ["Documents", "", "▤"], ["Renewals", "", "↻"], ["Calendar", "", "▦"], ["Follow-ups", "/follow-ups", "☷"],
+  ["Documents", "/documents", "▤"], ["Renewals", "", "↻"], ["Calendar", "", "▦"], ["Follow-ups", "/follow-ups", "☷"],
   ["Reports", "", "▥"], ["Settings", "", "⚙"],
 ];
 

@@ -5,8 +5,9 @@ import { ArchiveDialog } from "@/components/archive-dialog";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { archiveCustomerAction } from "@/features/crm/actions";
 import { customerDetailPath, customerEditPath } from "@/features/crm/customer-utils";
+import { formatDisplayDate, getRelativeExpiryText } from "@/lib/dates/expiry";
 import { getWorkspaceContext } from "@/lib/workspace/context";
-import { listParams, maskEmiratesId, maskPassport } from "@/lib/workspace/utils";
+import { listParams } from "@/lib/workspace/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,8 @@ type CustomerRow = {
   companies: { name: string } | { name: string }[] | null;
   branches: { name: string } | { name: string }[] | null;
 };
+
+type CustomerDocument = { customer_id: string; expires_on: string | null; document_number: string | null; organization_document_types: { name: string } | { name: string }[] | null };
 
 function relationName(value: { name: string } | { name: string }[] | null) {
   return Array.isArray(value) ? (value[0]?.name ?? "") : (value?.name ?? "");
@@ -72,6 +75,12 @@ export default async function Customers({
 
   const { data, count } = await query.range((params.page - 1) * params.pageSize, params.page * params.pageSize - 1);
   const customers = (data ?? []) as CustomerRow[];
+  const { data: documentRows } = customers.length ? await context.supabase.from("documents").select("customer_id,expires_on,document_number,organization_document_types(name)").eq("organization_id", context.organization.id).is("archived_at", null).in("customer_id", customers.map((customer) => customer.id)).order("expires_on") : { data: [] };
+  const documentsByCustomer = new Map<string, CustomerDocument[]>();
+  for (const document of (documentRows ?? []) as CustomerDocument[]) {
+    if (!document.customer_id) continue;
+    documentsByCustomer.set(document.customer_id, [...(documentsByCustomer.get(document.customer_id) ?? []), document]);
+  }
 
   return (
     <WorkspaceShell organizationName={context.organization.name}>
@@ -101,14 +110,14 @@ export default async function Customers({
                   <th>Customer</th>
                   <th>Company</th>
                   <th>Mobile</th>
-                  <th>Passport</th>
-                  <th>Emirates ID</th>
+                  <th>Documents</th>
+                  <th>Next expiry</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {customers.map((customer) => (
-                  <tr key={customer.id}>
+                  <tr key={customer.id}>{(() => { const documents = documentsByCustomer.get(customer.id) ?? []; const next = documents.find((document) => document.expires_on); const type = next ? relationName(next.organization_document_types) : ""; return <>
                     <td>
                       <Link href={customerDetailPath(customer.id)}>
                         <b>{customer.full_name}</b>
@@ -122,18 +131,18 @@ export default async function Customers({
                       <small>{relationName(customer.branches)}</small>
                     </td>
                     <td>{customer.phone}</td>
-                    <td>{maskPassport(customer.passport_number)}</td>
-                    <td>{maskEmiratesId(customer.emirates_id_number)}</td>
+                    <td>{documents.length ? `${documents.length} document${documents.length === 1 ? "" : "s"}` : "No documents"}</td>
+                    <td>{next?.expires_on ? <><b>{type || "Document"}</b><small>{formatDisplayDate(next.expires_on)} · {getRelativeExpiryText(next.expires_on)}</small></> : "No expiry recorded"}</td>
                     <td>
                       <CustomerActions customer={customer} />
                     </td>
-                  </tr>
+                  </>; })()}</tr>
                 ))}
               </tbody>
             </table>
             <div className="mobile-card-list">
-              {customers.map((customer) => (
-                <article className="mobile-record-card" key={customer.id}>
+                {customers.map((customer) => (
+                <article className="mobile-record-card" key={customer.id}>{(() => { const documents = documentsByCustomer.get(customer.id) ?? []; const next = documents.find((document) => document.expires_on); const type = next ? relationName(next.organization_document_types) : ""; return <>
                   <div>
                     <Link href={customerDetailPath(customer.id)}>
                       <b>{customer.full_name}</b>
@@ -144,16 +153,16 @@ export default async function Customers({
                   </div>
                   <dl>
                     <div>
-                      <dt>Passport</dt>
-                      <dd>{maskPassport(customer.passport_number)}</dd>
+                      <dt>Documents</dt>
+                      <dd>{documents.length || "No"} {documents.length === 1 ? "document" : "documents"}</dd>
                     </div>
                     <div>
-                      <dt>Emirates ID</dt>
-                      <dd>{maskEmiratesId(customer.emirates_id_number)}</dd>
+                      <dt>Next expiry</dt>
+                      <dd>{next?.expires_on ? `${type || "Document"} · ${getRelativeExpiryText(next.expires_on)}` : "No expiry recorded"}</dd>
                     </div>
                   </dl>
                   <CustomerActions customer={customer} />
-                </article>
+                </>; })()}</article>
               ))}
             </div>
           </>

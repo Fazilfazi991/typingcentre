@@ -7,6 +7,7 @@ This directory is intentionally local-only in Stage 2. It contains no project re
 1. Install Docker Desktop and start it.
 2. Run `npm run db:start`.
 3. Run `npm run db:reset` to apply migrations and `seed.sql`.
+   This includes the fictional local dashboard QA batch documented in `docs/LOCAL_DEMO_DATA.md`.
 4. Run `npm run db:test` for the pgTAP schema checks.
 5. Run `npm run db:types:local` to replace `src/types/database.generated.ts` with database-generated types.
 6. Run `npm run db:stop` when finished.

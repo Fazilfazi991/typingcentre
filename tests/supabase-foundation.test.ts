@@ -27,4 +27,12 @@ describe("Supabase foundation files", () => {
     expect(seed).toContain("Smart Documents Services");
     expect(seed).not.toMatch(/insert into auth\.users/i);
   });
+
+  it("includes an idempotent fictional dashboard QA batch", () => {
+    expect(seed).toContain("DEMO-AN-DOC-");
+    expect(seed).toContain("@demo.renewtrack.invalid");
+    expect(seed).toContain("generate_series(1, 36)");
+    expect(seed).toContain("current_date + (n - 5)");
+    expect(seed).toContain("renewal_in_progress");
+  });
 });

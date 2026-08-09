@@ -1,1 +1,1 @@
-export default function Suspended() { return <main className="auth"><h1>Account access is paused</h1><p>Contact RenewTrack support. No customer documents were deleted.</p><a href="/login">Back to login</a></main>; }
+export default function Suspended() { return <main className="auth"><h1>Account access is paused</h1><p>Contact Note It support. No customer documents were deleted.</p><a href="/login">Back to login</a></main>; }

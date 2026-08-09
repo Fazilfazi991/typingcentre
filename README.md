@@ -1,6 +1,6 @@
-# RenewTrack
+# Note It
 
-RenewTrack is being migrated from a static document-expiry prototype to a production-ready multi-tenant SaaS application in controlled stages.
+Note It is being migrated from a static document-expiry prototype to a production-ready multi-tenant SaaS application in controlled stages.
 
 ## Stage 1
 

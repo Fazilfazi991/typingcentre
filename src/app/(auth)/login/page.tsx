@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useState } from "react";
 import { loginAction } from "../actions";
+import { NoteItLogo } from "@/components/note-it-logo";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(loginAction, { error: "" });
@@ -9,14 +10,11 @@ export default function LoginPage() {
   return (
     <main className="auth">
       <section className="auth-panel" aria-labelledby="login-title">
-        <div className="auth-brand" aria-label="RenewTrack">
-          <span aria-hidden="true">RT</span>
-          <b>RenewTrack</b>
-        </div>
+        <div className="auth-brand"><NoteItLogo className="auth-logo" /></div>
         <div className="auth-intro">
-          <p>Expiry management workspace</p>
-          <h1 id="login-title">Welcome back</h1>
-          <span>Sign in to your production workspace.</span>
+          <p>Document management workspace</p>
+          <h1 id="login-title">Welcome to Note It</h1>
+          <span>Stay ahead of document expiries, renewals and follow-ups.</span>
         </div>
         <form action={action} className="auth-form">
           <label htmlFor="email">Email address</label>

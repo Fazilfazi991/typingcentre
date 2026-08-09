@@ -1,5 +1,5 @@
 export const appConfig = {
-  name: "RenewTrack",
+  name: "Note It",
   description: "Document expiry management for UAE typing centres.",
   timezone: "Asia/Dubai",
   locale: "en-AE",

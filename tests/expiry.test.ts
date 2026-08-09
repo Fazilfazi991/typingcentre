@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateDaysRemaining, determineExpiryStatus, expiryBucketFromQuery, getRelativeExpiryText } from "@/lib/dates/expiry";
+import { calculateDaysRemaining, determineExpiryStatus, dubaiDateTimeLocalValue, dubaiDateTimeToUtcISOString, expiryBucketFromQuery, getRelativeExpiryText } from "@/lib/dates/expiry";
 
 const now = new Date("2026-08-05T12:00:00Z");
 describe("expiry utilities", () => {
@@ -14,5 +14,10 @@ describe("expiry utilities", () => {
     expect(determineExpiryStatus("2026-08-12", false, now)).toBe("urgent");
     expect(determineExpiryStatus("2026-08-13", false, now)).toBe("expiring_soon");
     expect(determineExpiryStatus("2026-09-05", false, now)).toBe("valid");
+  });
+  it("uses Asia/Dubai for date boundaries and datetime-local conversions", () => {
+    expect(calculateDaysRemaining("2026-08-10", new Date("2026-08-09T20:30:00Z"))).toBe(0);
+    expect(dubaiDateTimeToUtcISOString("2026-08-15T09:00")).toBe("2026-08-15T05:00:00.000Z");
+    expect(dubaiDateTimeLocalValue("2026-08-15T05:00:00.000Z")).toBe("2026-08-15T09:00");
   });
 });

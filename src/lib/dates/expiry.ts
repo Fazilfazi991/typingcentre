@@ -23,6 +23,23 @@ function addDays(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
+/** Converts the timezone-free value emitted by datetime-local into a Dubai instant. */
+export function dubaiDateTimeToUtcISOString(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) throw new Error("Enter a valid due date.");
+  const [, year, month, day, hour, minute, second = "00"] = match;
+  // Asia/Dubai has a fixed UTC+04:00 offset and does not observe daylight saving time.
+  return new Date(Date.UTC(+year, +month - 1, +day, +hour - 4, +minute, +second)).toISOString();
+}
+
+export function dubaiDateTimeLocalValue(value: string | Date | undefined) {
+  const date = asDate(value);
+  if (!date) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: appConfig.timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+}
+
 export function expiryBoundaries(now = new Date()): ExpiryBoundaries {
   const today = dateParts(now);
   return { today, tomorrow: addDays(today, 1), day8: addDays(today, 8), day31: addDays(today, 31) };
@@ -81,4 +98,9 @@ export function formatDisplayDate(value: string | Date | undefined) {
 export function formatDateTime(value: string | Date | undefined) {
   const date = asDate(value);
   return date ? new Intl.DateTimeFormat(appConfig.locale, { timeZone: appConfig.timezone, dateStyle: "medium", timeStyle: "short" }).format(date) : "-";
+}
+
+export function formatTime(value: string | Date | undefined) {
+  const date = asDate(value);
+  return date ? new Intl.DateTimeFormat(appConfig.locale, { timeZone: appConfig.timezone, hour: "numeric", minute: "2-digit" }).format(date) : "-";
 }

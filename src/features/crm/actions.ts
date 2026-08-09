@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { customerArchiveSchema, customerDatabaseError } from "@/features/crm/customer-utils";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { safeDatabaseError } from "@/lib/workspace/utils";
+import { dubaiDateTimeToUtcISOString } from "@/lib/dates/expiry";
 import { branchSchema, companySchema, customerSchema, followUpSchema, followUpUpdateSchema, completeFollowUpSchema } from "./schemas";
 
 const emptyToNull = (value: string | undefined) => value?.trim() || null;
@@ -453,7 +454,7 @@ export async function completeFollowUpAction(formData: FormData) {
   if (!current || current.status === "completed") redirect("/follow-ups?error=unavailable" as never);
   let nextId: string | null = null;
   if (value.nextDueAt) {
-    const { data: next, error: nextError } = await context.supabase.from("follow_ups").insert({ organization_id: context.organization.id, customer_id: current.customer_id, company_id: current.company_id, due_at: new Date(value.nextDueAt).toISOString(), note: emptyToNull(value.nextNote), created_by: context.user.id }).select("id").single();
+    const { data: next, error: nextError } = await context.supabase.from("follow_ups").insert({ organization_id: context.organization.id, customer_id: current.customer_id, company_id: current.company_id, due_at: dubaiDateTimeToUtcISOString(value.nextDueAt), note: emptyToNull(value.nextNote), created_by: context.user.id }).select("id").single();
     if (nextError || !next) redirect("/follow-ups?error=save" as never); nextId = next.id;
   }
   const { data, error } = await context.supabase

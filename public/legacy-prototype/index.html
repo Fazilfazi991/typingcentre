@@ -150,12 +150,12 @@
     const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
     const today=new Date('2026-08-05T08:00:00');
     const organizations=[
-      {id:'platform',name:'Platform Admin',logo:'PA',color:'#2563eb',role:'Platform Admin',plan:'Platform',location:'UAE',owner:'RenewTrack HQ',email:'admin@renewtrack.ae',password:'Admin@123'},
+      {id:'platform',name:'Platform Admin',logo:'PA',color:'#0e7bff',role:'Platform Admin',plan:'Platform',location:'UAE',owner:'Note It HQ',email:'admin@renewtrack.ae',password:'Admin@123'},
       {id:'alnoor',name:'Al Noor Typing Centre',logo:'AN',color:'#2563eb',role:'Owner',plan:'Business',location:'Dubai',owner:'Aisha Rahman',email:'owner@alnoortyping.ae',password:'Demo@123',target:{customers:68,companies:12,documents:184,week:6,month:18,expired:3,followups:5,storage:'12.4 GB'}},
       {id:'smartdocs',name:'Smart Documents Services',logo:'SD',color:'#059669',role:'Owner',plan:'Starter',location:'Sharjah',owner:'Khalid Mansoor',email:'admin@smartdocs.ae',password:'Demo@123',target:{customers:32,companies:6,documents:91,week:2,month:8,expired:1,followups:3,storage:'5.8 GB'}},
       {id:'emirateshub',name:'Emirates Business Hub',logo:'EH',color:'#7c3aed',role:'Owner',plan:'Pro',location:'Abu Dhabi',owner:'Layla Nasser',email:'manager@emirateshub.ae',password:'Demo@123',target:{customers:126,companies:22,documents:368,week:11,month:29,expired:5,followups:8,storage:'24.9 GB'}}
     ];
-    const demoAccounts=organizations.filter(o=>o.id!=='platform').map(o=>`<button class="demo-account" onclick="fillDemo('${o.email}','${o.password}')"><span><b>${o.name}</b><span>${o.location} · ${o.plan}</span></span><span class="btn small">Try Demo</span></button>`).join('')+`<button class="demo-account" onclick="fillDemo('admin@renewtrack.ae','Admin@123')"><span><b>Platform Administrator</b><span>RenewTrack HQ</span></span><i data-lucide="arrow-right"></i></button>`;
+    const demoAccounts=organizations.filter(o=>o.id!=='platform').map(o=>`<button class="demo-account" onclick="fillDemo('${o.email}','${o.password}')"><span><b>${o.name}</b><span>${o.location} · ${o.plan}</span></span><span class="btn small">Try Demo</span></button>`).join('')+`<button class="demo-account" onclick="fillDemo('admin@renewtrack.ae','Admin@123')"><span><b>Platform Administrator</b><span>Note It HQ</span></span><i data-lucide="arrow-right"></i></button>`;
     $('#demoAccounts').innerHTML=demoAccounts;
 
     function makeTenant(org){

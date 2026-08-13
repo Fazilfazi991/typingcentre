@@ -4303,3 +4303,113 @@ th {
   .recent-activity-icon { width: 42px; height: 42px; }
   .recent-activity-row time { grid-column: 2; }
 }
+/* Desktop dashboard density refinement: real dimensions, never root scaling. */
+@media (min-width: 1101px) {
+  .app-shell { grid-template-columns: 204px minmax(0, 1fr); }
+  .app-shell > .sidebar { padding: 12px 10px; }
+  .app-shell > .sidebar .brand { height: 52px; padding: 3px 7px; }
+  .app-shell > .sidebar .brand-logo { width: 146px; }
+  .app-shell > .sidebar .sidebar-top { gap: 10px; }
+  .app-shell > .sidebar nav { gap: 3px; }
+  .app-shell > .sidebar nav > a,
+  .app-shell > .sidebar .nav-disabled { height: 37px; gap: 9px; padding: 0 11px; border-radius: 9px; font-size: 13px; }
+  .app-shell > .sidebar nav i { width: 18px; font-size: 17px; }
+  .app-shell > .sidebar .organization-card { grid-template-columns: 34px minmax(0,1fr) 16px; min-height: 62px; gap: 9px; padding: 9px 4px 2px; }
+  .app-shell > .sidebar .organization-card .org-avatar { width: 34px; height: 34px; border-radius: 9px; font-size: 13px; }
+  .app-shell > .sidebar .organization-card b { font-size: 12px; }
+  .app-shell > .sidebar .organization-card small { font-size: 10px; }
+  .app-shell > .sidebar .sidebar-logout { margin-top: 5px; font-size: 11px; }
+}
+@media (min-width: 761px) {
+  .app-stage .topbar { min-height: 64px; height: 64px; gap: 12px; padding: 8px 18px; }
+  .app-stage .global-search { height: 40px; padding: 0 9px 0 14px; border-radius: 13px; }
+  .app-stage .global-search input { padding-right: 44px; font-size: 13px; }
+  .app-stage .global-search button { right: 7px; width: 32px; height: 32px; }
+  .app-stage .global-search button svg { width: 20px; height: 20px; }
+  .app-stage .topbar-actions { height: 40px; gap: 8px; }
+  .app-stage .filters-button,
+  .app-stage .new-button,
+  .app-stage .icon-button,
+  .app-stage .profile-menu > summary { height: 40px; border-radius: 12px; font-size: 13px; }
+  .app-stage .filters-button { gap: 7px; padding: 0 13px; }
+  .app-stage .filters-button svg { width: 18px; height: 18px; }
+  .app-stage .new-button { gap: 8px; padding: 0 14px; }
+  .app-stage .new-button > span { font-size: 22px; }
+  .app-stage .icon-button { width: 40px; }
+  .app-stage .notification-button svg { width: 20px; height: 20px; }
+  .app-stage .profile-menu > summary { gap: 8px; padding: 0 10px 0 6px; }
+  .app-stage .profile-avatar { width: 30px; height: 30px; font-size: 11px; }
+  .app-stage .profile-copy { gap: 2px; }
+  .app-stage .profile-copy b { font-size: 12px; }
+  .app-stage .profile-copy small { max-width: 122px; font-size: 10px; }
+  .app-stage .profile-chevron { font-size: 18px; }
+  .app-stage .app-content { padding: 18px 22px 28px; }
+  .app-stage .overview-kpi-heading.dashboard-hero { min-height: 0; margin-bottom: 16px; padding: 0; }
+  .app-stage .overview-kpi-heading.dashboard-hero h1 { font-size: 28px; }
+  .app-stage .overview-kpi-heading.dashboard-hero p { margin-top: 5px; font-size: 14px; }
+  .app-stage .overview-kpi-grid { gap: 16px; }
+  .app-stage .overview-kpi-card.metric-card { min-height: 168px; border-radius: 13px; }
+  .app-stage .overview-kpi-card .overview-kpi-main { grid-template-columns: 44px minmax(0,1fr); gap: 13px; padding: 17px 16px 13px; }
+  .app-stage .overview-kpi-card .metric-icon { width: 44px; height: 44px; }
+  .app-stage .overview-kpi-card .metric-icon svg { width: 23px; height: 23px; }
+  .app-stage .overview-kpi-card .metric-copy small { min-height: 29px; font-size: 12px; }
+  .app-stage .overview-kpi-card .metric-copy strong { margin-top: 2px; font-size: 33px; }
+  .app-stage .overview-kpi-card .metric-copy em { padding-top: 6px; font-size: 12px; }
+  .app-stage .overview-kpi-footer { min-height: 44px; padding: 10px 16px; font-size: 12px; }
+  .app-stage .overview-kpi-card .metric-arrow { font-size: 21px; }
+  .app-stage .dashboard-primary { gap: 16px; margin-top: 16px; }
+  .app-stage .panel { border-radius: 13px; }
+  .app-stage .panel-heading { padding: 14px 16px 11px; }
+  .app-stage .section-title { gap: 9px; }
+  .app-stage .section-icon { width: 32px; height: 32px; border-radius: 9px; font-size: 9px; }
+  .app-stage .panel h2 { font-size: 14px; }
+  .app-stage .panel-heading p { margin-top: 2px; font-size: 10px; }
+  .app-stage .ghost-action,
+  .app-stage .add-action { min-height: 30px; padding: 6px 9px; font-size: 10px; }
+  .app-stage .attention-table th { height: 34px; padding: 7px 10px; font-size: 9px; }
+  .app-stage .attention-table td { height: 45px; padding: 7px 10px; font-size: 10.5px; }
+  .app-stage .person { gap: 7px; min-width: 116px; }
+  .app-stage .initial-avatar { width: 28px; height: 28px; border-radius: 9px; font-size: 9px; }
+  .app-stage .person b,
+  .app-stage .followup-copy b { font-size: 10.5px; }
+  .app-stage .person small,
+  .app-stage .followup-copy small { margin-top: 2px; font-size: 9px; }
+  .app-stage .attention-table time { font-size: 10px; }
+  .app-stage .status-pill { padding: 4px 7px; font-size: 8.5px; }
+  .app-stage .followup-item { gap: 7px; padding: 9px 11px; }
+  .app-stage .complete-check { width: 24px; height: 24px; }
+  .app-stage .panel-footer-link { margin: 10px; padding: 8px; font-size: 9px; }
+  .app-stage .dashboard-empty { gap: 5px; padding: 27px 16px; }
+  .app-stage .dashboard-empty > span { width: 36px; height: 36px; border-radius: 11px; font-size: 17px; }
+  .app-stage .dashboard-empty b { font-size: 12px; }
+  .app-stage .dashboard-empty p { font-size: 10px; }
+  .app-stage .dashboard-insights { gap: 16px; margin-top: 17px; }
+  .app-stage .insight-card { padding: 19px; border-radius: 14px; }
+  .app-stage .insight-card-header { margin-bottom: 15px; }
+  .app-stage .insight-card h2 { font-size: 18px; }
+  .app-stage .insight-card-header p,
+  .app-stage .insight-heading p { font-size: 11px; }
+  .app-stage .insight-heading-icon { width: 38px; height: 38px; border-radius: 10px; }
+  .app-stage .insight-action { min-height: 36px; padding: 7px 10px; font-size: 11px; }
+  .app-stage .health-metric-grid { gap: 10px; }
+  .app-stage .health-metric { min-height: 122px; padding: 10px 7px; }
+  .app-stage .health-metric-icon { width: 39px; height: 39px; margin-bottom: 5px; }
+  .app-stage .health-metric-icon svg { width: 22px; height: 22px; }
+  .app-stage .health-metric > span:not(.health-metric-icon) { font-size: 10px; }
+  .app-stage .health-metric b { font-size: 24px; }
+  .app-stage .health-metric small { font-size: 9px; }
+  .app-stage .portfolio-overview,
+  .app-stage .expiration-chart { margin-top: 13px; padding: 12px; }
+  .app-stage .bar-chart { min-height: 140px; gap: 20px; padding: 12px 12px 0; }
+  .app-stage .bar-track { height: 88px; }
+  .app-stage .expiration-insight { margin-top: 9px; padding: 8px 9px; }
+  .app-stage .recent-activity-list { gap: 9px; }
+  .app-stage .recent-activity-row { grid-template-columns: 40px minmax(0,1fr) auto; min-height: 76px; gap: 10px; padding: 10px 11px 10px 16px; }
+  .app-stage .recent-activity-icon { width: 40px; height: 40px; border-radius: 10px; }
+  .app-stage .recent-activity-icon svg { width: 22px; height: 22px; }
+  .app-stage .recent-activity-row p { font-size: 11px; }
+  .app-stage .recent-activity-row time { font-size: 9.5px; }
+  .overview-kpi-loading-grid { gap: 16px; margin-top: 16px; }
+  .overview-kpi-loading-grid .skeleton-metric { min-height: 168px; padding: 17px 16px 58px; }
+  .overview-kpi-loading-grid .skeleton-metric:after { height: 44px; }
+}

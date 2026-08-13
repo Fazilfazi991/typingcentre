@@ -114,7 +114,7 @@ export async function runDailyExpiryNotifications(now = new Date()) {
     admin
       .from("documents")
       .select(
-        "organization_id,document_number,expires_on,status,is_active,archived_at,customers(full_name,status,is_active,archived_at),companies(name,status,is_active,archived_at),branches(name,status,is_active,archived_at),organization_document_types(name,status,is_active)",
+        "organization_id,document_number,expires_on,status,archived_at,customers(full_name,status,is_active,archived_at),companies(name,status,is_active,archived_at),branches(name,status,is_active,archived_at),organization_document_types(name,is_active)",
       )
       .gte("expires_on", today)
       .lt("expires_on", day31)
@@ -261,7 +261,7 @@ export async function sendTestExpiryDigest(input: {
     admin
       .from("documents")
       .select(
-        "organization_id,document_number,expires_on,status,is_active,archived_at,customers(full_name,status,is_active,archived_at),companies(name,status,is_active,archived_at),branches(name,status,is_active,archived_at),organization_document_types(name,status,is_active)",
+        "organization_id,document_number,expires_on,status,archived_at,customers(full_name,status,is_active,archived_at),companies(name,status,is_active,archived_at),branches(name,status,is_active,archived_at),organization_document_types(name,is_active)",
       )
       .eq("organization_id", input.organizationId)
       .gte("expires_on", today)

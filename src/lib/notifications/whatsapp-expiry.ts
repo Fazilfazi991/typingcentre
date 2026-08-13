@@ -137,7 +137,7 @@ export async function runWhatsAppExpiryNotifications(now = new Date()) {
       const { today, day31 } = expiryBoundaries(now, tenant.timezone);
       const { data, error } = await admin
         .from("documents")
-        .select("organization_id,document_number,expires_on,status,is_active,archived_at,customers(full_name,status,is_active,archived_at),companies(name,status,is_active,archived_at),branches(name,status,is_active,archived_at),organization_document_types(name,status,is_active)")
+        .select("organization_id,document_number,expires_on,status,archived_at,customers(full_name,status,is_active,archived_at),companies(name,status,is_active,archived_at),branches(name,status,is_active,archived_at),organization_document_types(name,is_active)")
         .eq("organization_id", tenant.id)
         .gte("expires_on", today)
         .lt("expires_on", day31)

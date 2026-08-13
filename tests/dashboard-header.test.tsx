@@ -24,4 +24,12 @@ describe("DashboardHeader", () => {
     expect(prototype).toContain("noteit:demo-state");
     expect(prototype).toContain("noteit:demo-command");
   });
+
+  it("renders every demo summary metric as a full semantic button", () => {
+    const prototype = readFileSync("public/legacy-prototype/index.html", "utf8");
+    expect(prototype).toContain('<button type="button" class="card stat-card');
+    expect(prototype).toContain("onclick=\"openSummaryCard('${label}')\"");
+    expect(prototype).toContain("function openSummaryCard(label)");
+    expect(prototype).toContain("label==='Follow-Ups Today'");
+  });
 });

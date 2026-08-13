@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+const getSupabaseAdminClient = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/supabase/admin", () => ({ getSupabaseAdminClient }));
 import { GET, POST } from "@/app/api/webhooks/whatsapp/route";
 
 const verifyToken = "test-whatsapp-webhook-token";
@@ -7,6 +9,7 @@ const verifyToken = "test-whatsapp-webhook-token";
 describe("WhatsApp webhook", () => {
   beforeEach(() => {
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = verifyToken;
+    getSupabaseAdminClient.mockReturnValue(null);
   });
 
   afterEach(() => {
@@ -184,6 +187,24 @@ describe("WhatsApp webhook", () => {
         status_timestamp: "1770000002",
       }),
     );
+  });
+
+  it("persists a sanitized status timestamp through the service-only transition", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    getSupabaseAdminClient.mockReturnValue({ rpc });
+    await postStatus({
+      id: "persisted-message-id",
+      status: "delivered",
+      timestamp: "1770000002",
+      errors: [{ code: 131000, message: "authorization=secret", error_data: { details: "Recipient 971501234567" } }],
+    });
+    expect(rpc).toHaveBeenCalledWith("record_whatsapp_delivery_status", expect.objectContaining({
+      p_meta_message_id: "persisted-message-id",
+      p_status: "delivered",
+      p_event_at: new Date(1770000002 * 1000).toISOString(),
+      p_error_message: "authorization=[redacted]",
+      p_error_details: "Recipient [redacted-number]",
+    }));
   });
 
   it("ignores malformed error fields without leaking their contents", async () => {

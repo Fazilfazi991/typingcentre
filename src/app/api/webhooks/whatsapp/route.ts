@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerEnv } from "@/lib/config/env.server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,16 @@ const metaStatusErrorSchema = z.object({
   title: z.string().optional(),
   message: z.string().optional(),
   error_data: z.object({ details: z.string().optional() }).optional(),
+});
+
+const metaStatusSchema = z.object({
+  id: z.string().optional(),
+  status: z.string().optional(),
+  timestamp: z.string().optional(),
+  recipient_id: z.string().optional(),
+  conversation: z.object({ id: z.string().optional(), origin: z.object({ type: z.string().optional() }).optional() }).optional(),
+  pricing: z.object({ category: z.string().optional(), pricing_model: z.string().optional() }).optional(),
+  errors: z.array(z.unknown()).optional(),
 });
 
 const webhookPayloadSchema = z.object({
@@ -25,29 +36,7 @@ const webhookPayloadSchema = z.object({
                 .object({
                   metadata: z.object({ phone_number_id: z.string().optional() }).optional(),
                   messages: z.array(z.object({ id: z.string().optional() })).optional(),
-                  statuses: z
-                    .array(
-                      z.object({
-                        id: z.string().optional(),
-                        status: z.string().optional(),
-                        timestamp: z.string().optional(),
-                        recipient_id: z.string().optional(),
-                        conversation: z
-                          .object({
-                            id: z.string().optional(),
-                            origin: z.object({ type: z.string().optional() }).optional(),
-                          })
-                          .optional(),
-                        pricing: z
-                          .object({
-                            category: z.string().optional(),
-                            pricing_model: z.string().optional(),
-                          })
-                          .optional(),
-                        errors: z.array(z.unknown()).optional(),
-                      }),
-                    )
-                    .optional(),
+                  statuses: z.array(metaStatusSchema).optional(),
                 })
                 .optional(),
             }),
@@ -73,8 +62,34 @@ function logWebhookEvent(event: Record<string, string | number | undefined>) {
   process.stdout.write(`${JSON.stringify({ event: "whatsapp_webhook", ...event })}\n`);
 }
 
-function logPayload(payload: WhatsAppWebhookPayload) {
+function statusTimestamp(value: string | undefined) {
+  if (!value || !/^\d{1,12}$/.test(value)) return undefined;
+  const date = new Date(Number(value) * 1000);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+async function persistDeliveryStatus(status: z.infer<typeof metaStatusSchema>) {
+  if (!status.id || !status.status || !["sent", "delivered", "read", "failed"].includes(status.status)) return;
+  const admin = getSupabaseAdminClient();
+  if (!admin) return;
+  const firstError = (status.errors ?? []).map((item) => metaStatusErrorSchema.safeParse(item)).find((item) => item.success);
+  const error = firstError?.success ? firstError.data : undefined;
+  const { error: persistenceError } = await admin.rpc("record_whatsapp_delivery_status", {
+    p_meta_message_id: status.id,
+    p_status: status.status,
+    p_event_at: statusTimestamp(status.timestamp) ?? null,
+    p_error_code: error?.code ?? null,
+    p_error_title: sanitizeMetaText(error?.title) ?? null,
+    p_error_message: sanitizeMetaText(error?.message) ?? null,
+    p_error_details: sanitizeMetaText(error?.error_data?.details) ?? null,
+  });
+  if (persistenceError)
+    logWebhookEvent({ event_type: "status_persistence_failed", message_id: status.id, delivery_status: status.status });
+}
+
+async function logPayload(payload: WhatsAppWebhookPayload) {
   const seen = new Set<string>();
+  const persistence: Promise<void>[] = [];
 
   for (const entry of payload.entry ?? []) {
     const whatsappBusinessAccountId = entry.id;
@@ -116,6 +131,7 @@ function logPayload(payload: WhatsAppWebhookPayload) {
           pricing_model: status.pricing?.pricing_model,
         };
         logWebhookEvent(statusContext);
+        persistence.push(persistDeliveryStatus(status));
 
         for (const [errorIndex, rawError] of (status.errors ?? []).entries()) {
           const parsedError = metaStatusErrorSchema.safeParse(rawError);
@@ -140,6 +156,7 @@ function logPayload(payload: WhatsAppWebhookPayload) {
       }
     }
   }
+  await Promise.allSettled(persistence);
 }
 
 export function GET(request: NextRequest) {
@@ -160,7 +177,7 @@ export function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const payload = webhookPayloadSchema.safeParse(await request.json());
-    if (payload.success) logPayload(payload.data);
+    if (payload.success) await logPayload(payload.data);
     else logWebhookEvent({ event_type: "malformed_payload" });
   } catch {
     logWebhookEvent({ event_type: "malformed_payload" });

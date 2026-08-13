@@ -11,13 +11,13 @@ function asDate(value: string | Date | undefined) {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-function dateParts(value: Date) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: appConfig.timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(value);
+function dateParts(value: Date, timezone: string = appConfig.timezone) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(value);
   const part = (type: string) => parts.find((item) => item.type === type)?.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
-function addDays(date: string, days: number) {
+export function addCalendarDays(date: string, days: number) {
   const value = new Date(`${date}T00:00:00Z`);
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
@@ -40,9 +40,23 @@ export function dubaiDateTimeLocalValue(value: string | Date | undefined) {
   return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
 }
 
-export function expiryBoundaries(now = new Date()): ExpiryBoundaries {
-  const today = dateParts(now);
-  return { today, tomorrow: addDays(today, 1), day8: addDays(today, 8), day31: addDays(today, 31) };
+export function expiryBoundaries(now = new Date(), timezone: string = appConfig.timezone): ExpiryBoundaries {
+  const today = dateParts(now, timezone);
+  return { today, tomorrow: addCalendarDays(today, 1), day8: addCalendarDays(today, 8), day31: addCalendarDays(today, 31) };
+}
+
+export function localDateTimeParts(now = new Date(), timezone: string = appConfig.timezone) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return { date: `${part("year")}-${part("month")}-${part("day")}`, time: `${part("hour")}:${part("minute")}` };
 }
 
 export function expiryBucketFromQuery(value: string | undefined): ExpiryBucket | undefined {
@@ -55,17 +69,17 @@ export function expiryBucketFromQuery(value: string | undefined): ExpiryBucket |
 export function expiryQueryValue(bucket: ExpiryBucket) { return bucket === "next-7-days" ? "7-days" : bucket === "days-8-to-30" ? "30-days" : "expired"; }
 export function expiryBucketLabel(bucket: ExpiryBucket) { return bucket === "expired" ? "Expired" : bucket === "next-7-days" ? "Next 7 days" : "Days 8 to 30"; }
 
-export function applyExpiryBucket<T extends { lt: Function; gte: Function }>(query: T, bucket: ExpiryBucket, now = new Date()): T {
-  const boundaries = expiryBoundaries(now);
+export function applyExpiryBucket<T extends { lt: Function; gte: Function }>(query: T, bucket: ExpiryBucket, now = new Date(), timezone: string = appConfig.timezone): T {
+  const boundaries = expiryBoundaries(now, timezone);
   if (bucket === "expired") return query.lt("expires_on", boundaries.today);
   if (bucket === "next-7-days") return query.gte("expires_on", boundaries.today).lt("expires_on", boundaries.day8);
   return query.gte("expires_on", boundaries.day8).lt("expires_on", boundaries.day31);
 }
 
-export function calculateDaysRemaining(expiryDate: string | Date | undefined, now = new Date()) {
+export function calculateDaysRemaining(expiryDate: string | Date | undefined, now = new Date(), timezone: string = appConfig.timezone) {
   const expiry = asDate(expiryDate);
   if (!expiry) return undefined;
-  const today = expiryBoundaries(now).today;
+  const today = expiryBoundaries(now, timezone).today;
   return Math.floor((Date.UTC(expiry.getUTCFullYear(), expiry.getUTCMonth(), expiry.getUTCDate()) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
 }
 

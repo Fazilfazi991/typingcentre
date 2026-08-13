@@ -3917,3 +3917,29 @@ th {
     padding: 0 15px 15px;
   }
 }
+
+.whatsapp-settings-card { max-width: 860px; }
+.whatsapp-settings-card > .panel-heading { padding: 24px 24px 8px; }
+.whatsapp-settings-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 18px 24px 24px; }
+.whatsapp-settings-form label { display: grid; gap: 7px; color: #102a5c; font-weight: 700; }
+.whatsapp-settings-form label small { color: #667085; font-weight: 500; line-height: 1.4; }
+.whatsapp-settings-form input { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: #102a5c; }
+.whatsapp-settings-form input:disabled { background: #f3f5f8; color: #667085; }
+.whatsapp-settings-form .settings-toggle { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; }
+.settings-toggle span { display: grid; gap: 4px; }
+.settings-toggle input { width: 22px; height: 22px; accent-color: var(--brand-primary); }
+.settings-alert { margin: 14px 24px 0; padding: 12px 14px; border-radius: 8px; }
+.settings-alert.success { background: #ecfdf3; color: #067647; }
+.settings-alert.error { background: #fff0f1; color: #b42318; }
+.whatsapp-delivery-status { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0 24px 24px; padding: 18px; border-radius: 10px; background: #f8fafc; }
+.whatsapp-delivery-status > div { display: grid; gap: 5px; }
+.whatsapp-delivery-status small { color: #667085; }
+.delivery-delivered, .delivery-read { color: var(--success); }
+.delivery-failed { color: var(--danger); }
+.delivery-failure { grid-column: 1 / -1; }
+.delivery-failure p { margin: 0; color: #b42318; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .whatsapp-settings-card > .panel-heading { padding: 18px 16px 6px; }
+  .whatsapp-settings-form, .whatsapp-delivery-status { grid-template-columns: 1fr; padding: 14px 16px 18px; margin-left: 0; margin-right: 0; }
+  .whatsapp-delivery-status { margin: 0 16px 18px; }
+}

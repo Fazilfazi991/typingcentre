@@ -14,7 +14,7 @@ export default async function Documents({ searchParams }: { searchParams: Promis
   const rawExpiry = (await searchParams).expiry;
   const bucket = expiryBucketFromQuery(typeof rawExpiry === "string" ? rawExpiry : undefined);
   let query = context.supabase.from("documents").select("id,document_number,expires_on,status,customer_id,company_id,customers(full_name),companies(name),organization_document_types(name)").eq("organization_id", context.organization.id).is("archived_at", null);
-  if (bucket) query = applyExpiryBucket(query, bucket);
+  if (bucket) query = applyExpiryBucket(query, bucket, new Date(), context.organization.timezone);
   const { data: documents } = await query.order("expires_on").limit(100);
 
   return <WorkspaceShell organizationName={context.organization.name} activePath="/documents">

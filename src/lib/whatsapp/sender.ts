@@ -39,6 +39,7 @@ function cleanMetaMessage(value: unknown) {
   return value
     .replace(/Bearer\s+[^\s]+/gi, "Bearer [redacted]")
     .replace(/access[_ -]?token\s*[:=]\s*[^\s,]+/gi, "access_token=[redacted]")
+    .replace(/\b\d{8,15}\b/g, "[redacted-number]")
     .slice(0, 500);
 }
 

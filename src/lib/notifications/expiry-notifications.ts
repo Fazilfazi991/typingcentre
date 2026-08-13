@@ -59,7 +59,7 @@ export function groupDocumentsByOrganization(rows: Array<{ organization_id: stri
   return groups;
 }
 
-export function buildDigestFromRows(rows: any[], now = new Date()) {
+export function buildDigestFromRows(rows: any[], now = new Date(), timezone?: string) {
   const digest = emptyExpiryDigest();
   for (const row of rows) {
     const customer = one<any>(row.customers);
@@ -74,7 +74,7 @@ export function buildDigestFromRows(rows: any[], now = new Date()) {
       (branch && !active(branch))
     )
       continue;
-    const daysRemaining = calculateDaysRemaining(row.expires_on, now);
+    const daysRemaining = calculateDaysRemaining(row.expires_on, now, timezone);
     if (daysRemaining === undefined) continue;
     addDocumentToDigest(digest, {
       subjectName: customer?.full_name || company?.name || "Document record",

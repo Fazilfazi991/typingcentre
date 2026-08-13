@@ -31,11 +31,11 @@ export default async function Dashboard() {
   if (!context) redirect("/account-inactive" as never);
 
   const now = new Date();
-  const { today, tomorrow, day8, day31 } = expiryBoundaries(now);
+  const { today, tomorrow, day8, day31 } = expiryBoundaries(now, context.organization.timezone);
   const documentCount = (bucket: "expired" | "next-7-days" | "days-8-to-30") =>
-    applyExpiryBucket(context.supabase.from("documents").select("id", { count: "exact", head: true }).eq("organization_id", context.organization.id).is("archived_at", null), bucket, now);
+    applyExpiryBucket(context.supabase.from("documents").select("id", { count: "exact", head: true }).eq("organization_id", context.organization.id).is("archived_at", null), bucket, now, context.organization.timezone);
   const documentPreview = (bucket: "expired" | "next-7-days" | "days-8-to-30") =>
-    applyExpiryBucket(context.supabase.from("documents").select("expires_on").eq("organization_id", context.organization.id).is("archived_at", null), bucket, now).order("expires_on").limit(1);
+    applyExpiryBucket(context.supabase.from("documents").select("expires_on").eq("organization_id", context.organization.id).is("archived_at", null), bucket, now, context.organization.timezone).order("expires_on").limit(1);
 
   const [expiredResult, weekResult, monthResult, followUpResult, validResult, renewalResult, attentionResult, todaysFollowUpsResult, activityResult, expiredPreview, weekPreview, monthPreview, followUpPreview] = await Promise.all([
     documentCount("expired"),

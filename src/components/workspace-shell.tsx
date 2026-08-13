@@ -6,7 +6,7 @@ import { NoteItLogo } from "@/components/note-it-logo";
 const nav = [
   ["Dashboard", "/dashboard", "⊞"], ["Customers", "/customers", "♙"], ["Companies", "/companies", "▥"],
   ["Documents", "/documents", "▤"], ["Renewals", "", "↻"], ["Calendar", "", "▦"], ["Follow-ups", "/follow-ups", "☷"],
-  ["Reports", "", "▥"], ["Settings", "", "⚙"],
+  ["Reports", "", "▥"], ["Settings", "/settings", "⚙"],
 ];
 
 export async function WorkspaceShell({ organizationName, activePath, children }: { organizationName: string; activePath?: string; children: React.ReactNode }) {

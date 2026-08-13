@@ -19,6 +19,7 @@ const serverSchema = z.object({
     .regex(/^v\d+\.\d+$/)
     .optional(),
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().min(1).optional(),
+  WHATSAPP_APP_SECRET: z.string().min(1).optional(),
   WHATSAPP_EXPIRY_TEMPLATE_NAME: z.string().regex(/^[a-z0-9_]+$/i).optional(),
   WHATSAPP_EXPIRY_TEMPLATE_LANGUAGE: z.string().regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/).optional(),
   SENTRY_DSN: z.string().url().optional(),
@@ -40,6 +41,7 @@ export function getServerEnv() {
     WHATSAPP_BUSINESS_ACCOUNT_ID: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
     WHATSAPP_GRAPH_API_VERSION: process.env.WHATSAPP_GRAPH_API_VERSION,
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
+    WHATSAPP_APP_SECRET: process.env.WHATSAPP_APP_SECRET,
     WHATSAPP_EXPIRY_TEMPLATE_NAME: process.env.WHATSAPP_EXPIRY_TEMPLATE_NAME,
     WHATSAPP_EXPIRY_TEMPLATE_LANGUAGE: process.env.WHATSAPP_EXPIRY_TEMPLATE_LANGUAGE,
     SENTRY_DSN: process.env.SENTRY_DSN,

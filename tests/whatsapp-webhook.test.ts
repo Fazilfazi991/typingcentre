@@ -1,28 +1,40 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { createHmac } from "node:crypto";
 const getSupabaseAdminClient = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/admin", () => ({ getSupabaseAdminClient }));
 import { GET, POST } from "@/app/api/webhooks/whatsapp/route";
 
 const verifyToken = "test-whatsapp-webhook-token";
+const appSecret = "test-meta-app-secret";
+
+function signatureFor(body: string) {
+  return `sha256=${createHmac("sha256", appSecret).update(body, "utf8").digest("hex")}`;
+}
+
+function webhookRequest(body: string, signature = signatureFor(body)) {
+  return new NextRequest("https://noteitapp.com/api/webhooks/whatsapp", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-hub-signature-256": signature },
+    body,
+  });
+}
 
 describe("WhatsApp webhook", () => {
   beforeEach(() => {
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = verifyToken;
+    process.env.WHATSAPP_APP_SECRET = appSecret;
     getSupabaseAdminClient.mockReturnValue(null);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    delete process.env.WHATSAPP_APP_SECRET;
   });
 
   async function postStatus(status: Record<string, unknown>) {
     const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const response = await POST(
-      new NextRequest("https://noteitapp.com/api/webhooks/whatsapp", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+    const body = JSON.stringify({
           object: "whatsapp_business_account",
           entry: [
             {
@@ -38,9 +50,8 @@ describe("WhatsApp webhook", () => {
               ],
             },
           ],
-        }),
-      }),
-    );
+        });
+    const response = await POST(webhookRequest(body));
     const logs = write.mock.calls.map(([value]) => JSON.parse(String(value)));
     return { response, logs };
   }
@@ -68,23 +79,14 @@ describe("WhatsApp webhook", () => {
   });
 
   it("acknowledges malformed webhook payloads without throwing", async () => {
-    const response = await POST(
-      new NextRequest("https://noteitapp.com/api/webhooks/whatsapp", {
-        method: "POST",
-        body: "not-json",
-      }),
-    );
+    const response = await POST(webhookRequest("not-json"));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ received: true });
   });
 
   it("acknowledges a valid messages and statuses event", async () => {
-    const response = await POST(
-      new NextRequest("https://noteitapp.com/api/webhooks/whatsapp", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+    const body = JSON.stringify({
           object: "whatsapp_business_account",
           entry: [
             {
@@ -101,12 +103,38 @@ describe("WhatsApp webhook", () => {
               ],
             },
           ],
-        }),
-      }),
-    );
+        });
+    const response = await POST(webhookRequest(body));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ received: true });
+  });
+
+  it("accepts a valid X-Hub-Signature-256", async () => {
+    const body = JSON.stringify({ object: "whatsapp_business_account", entry: [] });
+    const response = await POST(webhookRequest(body));
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects an invalid X-Hub-Signature-256", async () => {
+    const body = JSON.stringify({ object: "whatsapp_business_account", entry: [] });
+    const response = await POST(webhookRequest(body, `sha256=${"0".repeat(64)}`));
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ received: false });
+  });
+
+  it("rejects a missing X-Hub-Signature-256", async () => {
+    const body = JSON.stringify({ object: "whatsapp_business_account", entry: [] });
+    const response = await POST(
+      new NextRequest("https://noteitapp.com/api/webhooks/whatsapp", { method: "POST", body }),
+    );
+    expect(response.status).toBe(401);
+  });
+
+  it("rejects a malformed X-Hub-Signature-256", async () => {
+    const body = JSON.stringify({ object: "whatsapp_business_account", entry: [] });
+    const response = await POST(webhookRequest(body, "sha256=not-a-valid-digest"));
+    expect(response.status).toBe(401);
   });
 
   it("logs a failed status with one sanitized Meta error and status context", async () => {

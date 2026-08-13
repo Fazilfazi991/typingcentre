@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerEnv } from "@/lib/config/env.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { verifyMetaWebhookSignature } from "@/lib/whatsapp/webhook-signature";
 
 export const runtime = "nodejs";
 
@@ -175,8 +176,25 @@ export function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const appSecret = getServerEnv().WHATSAPP_APP_SECRET;
+  if (!appSecret) {
+    logWebhookEvent({ event_type: "signature_configuration_missing" });
+    return NextResponse.json({ received: false }, { status: 503 });
+  }
+
+  const rawBody = await request.text();
+  const signatureResult = verifyMetaWebhookSignature(
+    rawBody,
+    request.headers.get("x-hub-signature-256"),
+    appSecret,
+  );
+  if (signatureResult !== "valid") {
+    logWebhookEvent({ event_type: "signature_rejected", signature_result: signatureResult });
+    return NextResponse.json({ received: false }, { status: 401 });
+  }
+
   try {
-    const payload = webhookPayloadSchema.safeParse(await request.json());
+    const payload = webhookPayloadSchema.safeParse(JSON.parse(rawBody));
     if (payload.success) await logPayload(payload.data);
     else logWebhookEvent({ event_type: "malformed_payload" });
   } catch {

@@ -139,16 +139,6 @@
       <div id="nav"></div>
     </aside>
     <main class="main">
-      <header class="topbar">
-        <button class="icon-btn mobile-toggle" id="mobileToggle" aria-label="Open menu"><i data-lucide="menu"></i></button>
-        <div class="page-title"><b id="pageTitle">Dashboard</b><span id="workspaceName">Al Noor Typing Centre</span></div>
-        <div class="search-wrap"><i data-lucide="search"></i><input class="search" id="globalSearch" placeholder="Search customers, companies or documents"><div id="searchResults" class="hide"></div></div>
-        <div class="top-actions">
-          <button class="btn primary" id="quickAdd"><i data-lucide="plus"></i><span class="quick-text">New</span></button>
-          <button class="icon-btn" id="bell" aria-label="Notifications"><i data-lucide="bell"></i><span class="count" id="unreadCount">0</span></button>
-          <button class="profile" id="profileMenu" aria-label="Open profile menu"><span class="logo" id="orgLogo">AN</span><div><b id="profileName">Owner</b></div><i data-lucide="chevron-down"></i></button>
-        </div>
-      </header>
       <div class="content" id="content"></div>
     </main>
     <button class="fab" id="mobileFab" aria-label="Quick add"><i data-lucide="plus"></i></button>
@@ -158,6 +148,7 @@
   <div class="toasts" id="toasts"></div>
 
   <script>
+    if(window.self===window.top)window.location.replace('/demo');
     const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
     const today=new Date('2026-08-05T08:00:00');
     const organizations=[
@@ -215,7 +206,7 @@
 
     function showApp(){document.documentElement.style.setProperty('--primary','#0e7bff');document.documentElement.style.setProperty('--primary-soft','#e8f3ff');$('#login').classList.add('hide');$('#app').classList.remove('hide');render()}
     function soft(c){return c==='#059669'?'#d1fae5':c==='#7c3aed'?'#ede9fe':'#dbeafe'}
-    function logout(){localStorage.removeItem('renewtrack-session');session=null;previewOrg=null;$('#app').classList.add('hide');$('#login').classList.remove('hide')}
+    function logout(){localStorage.removeItem('renewtrack-session');session=null;previewOrg=null;$('#app').classList.add('hide');$('#login').classList.remove('hide');parent.postMessage({type:'noteit:demo-logout'},location.origin)}
 
     $('#loginForm').onsubmit=e=>{
       e.preventDefault();
@@ -229,11 +220,11 @@
     function setChrome(){
       let org=getCurrentOrganization(), account=currentAccount();
       document.documentElement.style.setProperty('--primary','#0e7bff');document.documentElement.style.setProperty('--primary-soft','#e8f3ff');
-      $('#workspaceName').textContent=org.name;$('#orgLogo').textContent=org.logo;$('#orgLogo').style.background=org.color;$('#profileName').textContent=account.role;
       let nav=session.role==='Platform Admin'&&!previewOrg?adminNav():tenantNav();
       $('#nav').innerHTML=nav;$('#bottomNav').innerHTML=tenantBottomNav();
       if($('#footerLogo')){$('#footerLogo').textContent=org.logo;$('#footerLogo').style.background=org.color;$('#footerName').textContent=org.name;$('#footerPlan').textContent=org.location+' · '+org.plan}
-      let unread=org.id==='platform'?2:getOrganizationRecords('notifications').filter(n=>!n.read).length;$('#unreadCount').textContent=unread;
+      let unread=org.id==='platform'?2:getOrganizationRecords('notifications').filter(n=>!n.read).length;
+      parent.postMessage({type:'noteit:demo-state',identity:{name:account.owner,role:account.role,organizationName:org.name,unreadNotifications:unread}},location.origin);
     }
     function navButton(page,icon,label){return `<button class="nav-item" data-page="${page}"><i data-lucide="${icon}"></i>${label}</button>`}
     function adminNav(){return `<div class="nav-label">Platform</div>${[
@@ -252,7 +243,6 @@
       let hash=location.hash.slice(1)||'dashboard', [page,id]=hash.split('/');
       if(session.role==='Platform Admin'&&!previewOrg&&!['dashboard','centres','plans','usage','settings'].includes(page))page='dashboard';
       let titles={dashboard:session.role==='Platform Admin'&&!previewOrg?'Overview':'Document Overview',centres:'Typing Centres',plans:'Subscription Plans',usage:'Usage',settings:'Settings',customers:'Customers',companies:'Companies',documents:'Documents',renewals:'Renewals',calendar:'Calendar',followups:'Follow-Ups',notifications:'Notifications',reports:'Reports',company:'Company Profile',customer:'Customer Profile',document:'Document Details'};
-      $('#pageTitle').textContent=titles[page]||'Dashboard';
       $$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
       let views={dashboard:session.role==='Platform Admin'&&!previewOrg?platformDashboard:tenantDashboard,centres,plans,usage,settings,customers,companies,documents,renewals,calendar,followups,notifications,reports,company,customer,document:documentDetails};
       $('#content').innerHTML=(views[page]||views.dashboard)(id);
@@ -299,7 +289,8 @@
     function company(id){let c=getOrganizationRecords('companies').find(x=>x.id==id)||getOrganizationRecords('companies')[0], docs=getOrganizationRecords('documents').filter(d=>d.company===c.name);return `${workspaceTools()}<div class="card"><div class="section-title"><h3>${c.name}</h3><button class="btn" onclick="location.hash='companies'">Back</button></div><div class="grid stats"><div class="card"><b>Contact</b><div class="small">${c.contact}<br>${c.phone}</div></div><div class="card"><b>Location</b><div class="stat-value">${c.emirate}</div></div><div class="card"><b>Branches</b><div class="stat-value">${c.branches}</div></div><div class="card"><b>Status</b><br>${badge(c.status,c.status==='Active'?'active':'soon')}</div></div><h3 style="margin-top:18px">Documents</h3>${documentMiniTable(docs.slice(0,8))}</div>`}
     function customer(id){let c=getOrganizationRecords('customers').find(x=>x.id==id)||getOrganizationRecords('customers')[0], docs=getOrganizationRecords('documents').filter(d=>d.owner===c.name);return `${workspaceTools()}<div class="card"><div class="section-title"><h3>${c.name}</h3><button class="btn" onclick="location.hash='customers'">Back</button></div><div class="grid stats"><div class="card"><b>Phone</b><div class="small">${c.phone}</div></div><div class="card"><b>Company</b><div class="small">${c.company}</div></div><div class="card"><b>Passport</b><div class="small">${c.passport}</div></div><div class="card"><b>Status</b><br>${badge('Active','active')}</div></div><h3 style="margin-top:18px">Documents</h3>${documentMiniTable(docs)}</div>`}
     function documentDetails(id){let d=getOrganizationRecords('documents').find(x=>x.id==id)||getOrganizationRecords('documents')[0], s=status(d);return `${workspaceTools()}<div class="card"><div class="section-title"><h3>${d.type}</h3><button class="btn" onclick="location.hash='documents'">Back</button></div><div class="grid stats"><div class="card"><b>Customer / Company</b><div class="small">${d.owner}<br>${d.company}</div></div><div class="card"><b>Document number</b><div class="small">${d.number}</div></div><div class="card"><b>Expiry</b><div class="small">${fmt(d.expiry)}</div></div><div class="card"><b>Status</b><br>${badge(s[0],s[1])}</div></div><div style="margin-top:16px" class="actions-cell"><button class="btn" onclick="whatsapp('${d.owner}','+971509876543','${d.type}','${fmt(d.expiry)}')">WhatsApp</button><button class="btn" onclick="toast('Call task created')">Call</button><button class="btn primary" onclick="startRenewal(${d.id})">Start Renewal</button></div></div>`}
-    function renewals(){let docs=getOrganizationRecords('documents').filter(d=>['progress','urgent','soon','expired'].includes(status(d)[1])).slice(0,40);return `${workspaceTools()}<div class="card table-card"><div class="table-head"><b>Renewals</b><button class="btn primary" onclick="openModal('renewal')">Start Renewal</button></div>${documentMiniTable(docs)}</div>`}
+    let headerRange='30d';
+    function renewals(){let docs=getOrganizationRecords('documents').filter(d=>{let n=daysLeft(d.expiry);return headerRange==='today'?n===0:headerRange==='7d'?n>=0&&n<=7:headerRange==='expired'?n<0:n>=0&&n<=30}).slice(0,40);return `${workspaceTools()}<div class="card table-card"><div class="table-head"><b>Renewals</b><button class="btn primary" onclick="openModal('renewal')">Start Renewal</button></div>${documentMiniTable(docs)}</div>`}
     function calendar(){let docs=getOrganizationRecords('documents').filter(d=>daysLeft(d.expiry)<=30).slice(0,12);return `${workspaceTools()}<div class="card"><h3>Calendar</h3><div class="activity">${docs.map(d=>`<div class="activity-item"><b>${fmt(d.expiry)} - ${d.type}</b><div class="small">${d.owner}</div></div>`).join('')}</div></div>`}
     function followups(){return `${workspaceTools()}<div class="card"><div class="section-title"><h3>Follow-Ups</h3><button class="btn primary" onclick="openModal('followup')">Add Follow-Up</button></div><div class="follow-list">${getOrganizationRecords('followUps').map(f=>followItem(f)).join('')}</div></div>`}
     function reports(){let docs=getOrganizationRecords('documents');return `${workspaceTools()}<div class="grid stats">${stat('Documents',docs.length)}${stat('Expired',docs.filter(d=>status(d)[1]==='expired').length)}${stat('Renewals',docs.filter(d=>d.renewal).length)}${stat('Follow-Ups',getOrganizationRecords('followUps').length)}</div><div class="card" style="margin-top:14px"><h3>Expiry Overview</h3>${expiryBars(docs)}</div>`}
@@ -329,12 +320,28 @@
     function closeModal(){$('#modalBackdrop').classList.remove('show')}
     function toast(text){let e=document.createElement('div');e.className='toast';e.textContent=text;$('#toasts').append(e);setTimeout(()=>e.remove(),2600)}
     function setIcons(){lucide.createIcons()}
+    function showGlobalSearch(query){
+      let q=query.trim().toLowerCase();if(!q)return toast('Enter a customer, company or document to search.');
+      let org=getCurrentOrganization();if(org.id==='platform'){location.hash='centres';return}
+      let found=[...getOrganizationRecords('companies').filter(x=>x.name.toLowerCase().includes(q)).slice(0,4).map(x=>['company',x.id,x.name]),...getOrganizationRecords('customers').filter(x=>x.name.toLowerCase().includes(q)).slice(0,4).map(x=>['customer',x.id,x.name]),...getOrganizationRecords('documents').filter(x=>(x.owner+x.type+x.number).toLowerCase().includes(q)).slice(0,4).map(x=>['document',x.id,`${x.type} - ${x.owner}`])];
+      $('#modalTitle').textContent='Search results';$('#modalBody').innerHTML=found.length?`<div class="follow-list">${found.map(x=>`<button class="follow btn" onclick="closeModal();location.hash='${x[0]}/${x[1]}'">${x[2]}</button>`).join('')}</div>`:'<p class="small">No matches in this workspace.</p>';$('#modalBackdrop').classList.add('show')
+    }
+    window.addEventListener('message',e=>{
+      if(e.origin!==location.origin||e.source!==parent)return;
+      if(e.data?.type==='noteit:demo-request-state'){if(session)setChrome();return}
+      if(e.data?.type!=='noteit:demo-command'||!session)return;
+      let command=e.data.command;
+      if(command.type==='navigate')location.hash=command.target;
+      if(command.type==='filter'){headerRange=command.range;location.hash='renewals';if(location.hash==='#renewals')render()}
+      if(command.type==='new')openModal(command.target);
+      if(command.type==='search')showGlobalSearch(command.query||'');
+      if(command.type==='logout')logout();
+    });
     function bindEvents(){
       document.addEventListener('click',e=>{let b=e.target.closest('[data-page]');if(b)location.hash=b.dataset.page});
       document.addEventListener('input',e=>{if(e.target.matches('[data-filter]'))filterTable(e.target.dataset.filter,e.target.value)});
       document.addEventListener('change',e=>{if(e.target.id==='docStatus'){let val=e.target.value, docs=getOrganizationRecords('documents').filter(d=>val==='all'||status(d)[1]===val||(val==='soon'&&['soon','urgent'].includes(status(d)[1])));$('#documentTable').innerHTML=documentMiniTable(docs.slice(0,80))}});
-      $('#mobileToggle').onclick=()=>$('#sidebar').classList.toggle('open');$('#quickAdd').onclick=quickAddMenu;$('#mobileFab').onclick=quickAddMenu;$('#closeModal').onclick=closeModal;$('#modalBackdrop').onclick=e=>{if(e.target===$('#modalBackdrop'))closeModal()};$('#profileMenu').onclick=()=>{ $('#modalTitle').textContent='Account';$('#modalBody').innerHTML=`<div class="follow-list"><button class="follow btn" onclick="closeModal();location.hash='settings'">Account</button><button class="follow btn" onclick="closeModal();location.hash='settings'">Subscription</button><button class="follow btn" onclick="closeModal();location.hash='settings'">Settings</button><button class="follow btn danger" onclick="logout();closeModal()">Logout</button></div>`;$('#modalBackdrop').classList.add('show')};$('#bell').onclick=()=>{if(session.role==='Platform Admin'&&!previewOrg)toast('Two account alerts need review');else location.hash='notifications'};
-      $('#globalSearch').oninput=e=>{let q=e.target.value.toLowerCase(), r=$('#searchResults');if(q.length<2){r.classList.add('hide');return}let org=getCurrentOrganization();if(org.id==='platform'){r.innerHTML='<button class="nav-item" data-page="centres">Typing Centres</button>';r.classList.remove('hide');return}let found=[...getOrganizationRecords('companies').filter(x=>x.name.toLowerCase().includes(q)).slice(0,3).map(x=>['company',x.id,x.name]),...getOrganizationRecords('customers').filter(x=>x.name.toLowerCase().includes(q)).slice(0,3).map(x=>['customer',x.id,x.name]),...getOrganizationRecords('documents').filter(x=>(x.owner+x.type+x.number).toLowerCase().includes(q)).slice(0,3).map(x=>['document',x.id,`${x.type} - ${x.owner}`])];r.innerHTML=found.length?found.map(x=>`<button class="nav-item" onclick="location.hash='${x[0]}/${x[1]}';$('#searchResults').classList.add('hide')">${x[2]}</button>`).join(''):'<div class="small" style="padding:10px">No matches in this workspace</div>';r.classList.remove('hide')};
+      $('#mobileFab').onclick=quickAddMenu;$('#closeModal').onclick=closeModal;$('#modalBackdrop').onclick=e=>{if(e.target===$('#modalBackdrop'))closeModal()};
       window.onhashchange=render;document.onkeydown=e=>{if(e.key==='Escape')closeModal()}
     }
     bindEvents();setIcons();if(session)showApp();

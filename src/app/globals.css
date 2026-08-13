@@ -3678,6 +3678,8 @@ th {
 }
 .create-menu a,
 .filter-menu a,
+.create-menu button,
+.filter-menu button,
 .profile-menu button {
   padding: 10px;
   border: 0;
@@ -3690,8 +3692,33 @@ th {
 }
 .create-menu a:hover,
 .filter-menu a:hover,
+.create-menu button:hover,
+.filter-menu button:hover,
 .profile-menu button:hover {
   background: #eef6ff;
+}
+
+.demo-workspace {
+  width: 100%;
+  min-height: 100vh;
+  background: #f6f8fc;
+}
+.demo-workspace-active {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+}
+.demo-workspace-frame {
+  display: block;
+  width: 100%;
+  height: 100vh;
+  border: 0;
+  background: #f6f8fc;
+}
+.demo-workspace-active .demo-workspace-frame {
+  min-height: 0;
+  height: 100%;
 }
 .icon-button {
   position: relative;

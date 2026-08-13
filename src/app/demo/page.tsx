@@ -1,2 +1,5 @@
-import { redirect } from "next/navigation";
-export default function Demo() { redirect("/legacy-prototype/index.html" as never); }
+import { DemoWorkspace } from "./demo-workspace";
+
+export default function Demo() {
+  return <DemoWorkspace />;
+}

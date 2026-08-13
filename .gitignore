@@ -7,3 +7,6 @@ out/
 .env.production.local
 coverage/
 *.tsbuildinfo
+
+.vercel
+.env*

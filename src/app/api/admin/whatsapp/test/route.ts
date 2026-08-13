@@ -2,21 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerEnv } from "@/lib/config/env.server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { sendWhatsAppTextMessage } from "@/lib/whatsapp/sender";
+import { sendWhatsAppTemplateMessage, sendWhatsAppTextMessage } from "@/lib/whatsapp/sender";
 
 export const runtime = "nodejs";
 
-const testRequestSchema = z.object({
-  recipient: z.string().trim().min(8).max(32),
-  message: z
-    .string()
-    .trim()
-    .min(1)
-    .max(500)
-    .default(
-      "Note It WhatsApp integration test. If you received this message, the production WhatsApp Cloud API connection is working.",
-    ),
-});
+const testRequestSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("text"),
+    recipient: z.string().trim().min(8).max(32),
+    message: z.string().trim().min(1).max(500),
+  }),
+  z.object({
+    kind: z.literal("template"),
+    recipient: z.string().trim().min(8).max(32),
+    templateName: z.literal("hello_world"),
+    languageCode: z.literal("en_US"),
+  }),
+]);
 const attempts = new Map<string, number[]>();
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
@@ -57,10 +59,17 @@ export async function POST(request: NextRequest) {
       { error: "A valid recipient and short test message are required." },
       { status: 400 },
     );
-  const result = await sendWhatsAppTextMessage({
-    to: parsed.data.recipient,
-    body: parsed.data.message,
-  });
+  const result =
+    parsed.data.kind === "template"
+      ? await sendWhatsAppTemplateMessage({
+          to: parsed.data.recipient,
+          templateName: parsed.data.templateName,
+          languageCode: parsed.data.languageCode,
+        })
+      : await sendWhatsAppTextMessage({
+          to: parsed.data.recipient,
+          body: parsed.data.message,
+        });
   return NextResponse.json(result, {
     status: result.success ? 200 : result.error.type === "validation" ? 400 : 502,
     headers: { "Cache-Control": "no-store" },

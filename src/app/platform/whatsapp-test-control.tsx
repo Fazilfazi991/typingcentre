@@ -15,6 +15,7 @@ type ConfigurationStatus = Record<
 type SendResponse = {
   success: boolean;
   messageId?: string;
+  responseStatus?: number;
   error?: { code?: number; message?: string; requiresTemplate?: boolean };
 };
 const keys: Array<keyof ConfigurationStatus> = [
@@ -27,6 +28,7 @@ const keys: Array<keyof ConfigurationStatus> = [
 export function WhatsAppTestControl() {
   const [configuration, setConfiguration] = useState<ConfigurationStatus | null>(null);
   const [recipient, setRecipient] = useState("");
+  const [sendKind, setSendKind] = useState<"text" | "template">("text");
   const [message, setMessage] = useState(defaultMessage);
   const [result, setResult] = useState<SendResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,7 +52,11 @@ export function WhatsAppTestControl() {
       const response = await fetch("/api/admin/whatsapp/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipient, message }),
+        body: JSON.stringify(
+          sendKind === "template"
+            ? { kind: "template", recipient, templateName: "hello_world", languageCode: "en_US" }
+            : { kind: "text", recipient, message },
+        ),
       });
       setResult((await response.json()) as SendResponse);
     } catch {
@@ -97,17 +103,35 @@ export function WhatsAppTestControl() {
             />
           </label>
           <label>
-            Test message
-            <textarea
-              required
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              maxLength={500}
-              rows={3}
-            />
+            Send type
+            <select
+              value={sendKind}
+              onChange={(event) => setSendKind(event.target.value as "text" | "template")}
+            >
+              <option value="text">Free-form test message</option>
+              <option value="template">hello_world — English (US)</option>
+            </select>
           </label>
+          {sendKind === "text" ? (
+            <label>
+              Test message
+              <textarea
+                required
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                maxLength={500}
+                rows={3}
+              />
+            </label>
+          ) : (
+            <p>Active Meta template: hello_world (en_US). No parameters.</p>
+          )}
           <button className="primary-button" type="submit" disabled={loading}>
-            {loading ? "Sending controlled test…" : "Send one test message"}
+            {loading
+              ? "Sending controlled test…"
+              : sendKind === "template"
+                ? "Send one template test"
+                : "Send one test message"}
           </button>
         </form>
         {result && (

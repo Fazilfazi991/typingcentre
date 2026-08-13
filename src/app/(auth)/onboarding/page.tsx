@@ -1,3 +1,29 @@
 "use client";
-import { useActionState } from "react"; import { onboardAction } from "../actions";
-export default function Onboarding() { const [state, action, pending] = useActionState(onboardAction, { error: "" }); return <main className="auth"><form action={action}><h1>Set up your workspace in Note It</h1><p>Let&apos;s get your typing centre organized.</p><input name="name" placeholder="Business name" required /><input name="slug" placeholder="organization-slug" required /><input name="location" placeholder="Emirate / location" required /><input name="email" type="email" placeholder="Business email" required /><input name="phone" placeholder="Phone" required /><input name="whatsapp" placeholder="WhatsApp (optional)" /><input name="address" placeholder="Address (optional)" /><input name="primaryColor" defaultValue="#0E7BFF" required /><label><input name="acceptTerms" type="checkbox" value="true" required /> I accept the Terms and Privacy Policy</label><button disabled={pending}>Create workspace</button>{state.error && <p role="alert">{state.error}</p>}</form></main>; }
+import Link from "next/link";
+import { useActionState } from "react";
+import { onboardAction } from "../actions";
+export default function Onboarding() {
+  const [state, action, pending] = useActionState(onboardAction, { error: "" });
+  return (
+    <main className="auth">
+      <form action={action}>
+        <h1>Set up your workspace in Note It</h1>
+        <p>Let&apos;s get your typing centre organized.</p>
+        <input name="name" placeholder="Business name" required />
+        <input name="slug" placeholder="organization-slug" required />
+        <input name="location" placeholder="Emirate / location" required />
+        <input name="email" type="email" placeholder="Business email" required />
+        <input name="phone" placeholder="Phone" required />
+        <input name="whatsapp" placeholder="WhatsApp (optional)" />
+        <input name="address" placeholder="Address (optional)" />
+        <input name="primaryColor" defaultValue="#0E7BFF" required />
+        <label>
+          <input name="acceptTerms" type="checkbox" value="true" required /> I accept the{" "}
+          <Link href="/terms">Terms</Link> and <Link href="/privacy-policy">Privacy Policy</Link>
+        </label>
+        <button disabled={pending}>Create workspace</button>
+        {state.error && <p role="alert">{state.error}</p>}
+      </form>
+    </main>
+  );
+}

@@ -115,6 +115,38 @@ describe("WhatsApp sender", () => {
     });
   });
 
+  it("retains sanitized Meta API error diagnostics", async () => {
+    configureSender();
+    const result = await sendWhatsAppTemplateMessage(
+      { to: "+971501234567", templateName: "document_expiry_summary", languageCode: "en" },
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 132001,
+              error_subcode: 2494073,
+              error_user_title: "Template unavailable",
+              message: "Template is unavailable",
+              error_data: { details: "Bearer secret-token is not valid for this template" },
+            },
+          }),
+          { status: 400 },
+        ),
+      ),
+    );
+    expect(result).toMatchObject({
+      success: false,
+      responseStatus: 400,
+      error: {
+        code: 132001,
+        subcode: 2494073,
+        title: "Template unavailable",
+        message: "Template is unavailable",
+        details: "Bearer [redacted] is not valid for this template",
+      },
+    });
+  });
+
   it("constructs a template payload without selecting a production template", async () => {
     configureSender();
     const fetchMock = vi

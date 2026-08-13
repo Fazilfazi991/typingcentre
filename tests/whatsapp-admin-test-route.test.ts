@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getSupabaseServerClient = vi.hoisted(() => vi.fn());
@@ -12,6 +12,10 @@ vi.mock("@/lib/whatsapp/sender", () => ({ sendWhatsAppTemplateMessage, sendWhats
 import { GET, POST } from "@/app/api/admin/whatsapp/test/route";
 
 describe("WhatsApp admin test route", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   function authenticatedClient(platformRole: string) {
     const query = {
       select: vi.fn().mockReturnThis(),
@@ -92,6 +96,49 @@ describe("WhatsApp admin test route", () => {
       to: "+971501234567",
       templateName: "hello_world",
       languageCode: "en_US",
+    });
+    expect(sendWhatsAppTextMessage).not.toHaveBeenCalled();
+  });
+
+  it("sends the expiry summary template with the fixed parameters in order", async () => {
+    getSupabaseServerClient.mockResolvedValue(authenticatedClient("platform_admin"));
+    sendWhatsAppTemplateMessage.mockResolvedValue({
+      success: true,
+      messageId: "wamid.expiry-template-test",
+      responseStatus: 200,
+    });
+
+    const response = await POST(
+      new NextRequest("https://noteitapp.com/api/admin/whatsapp/test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind: "template",
+          recipient: "+971501234567",
+          templateName: "document_expiry_summary",
+          languageCode: "en",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendWhatsAppTemplateMessage).toHaveBeenCalledOnce();
+    expect(sendWhatsAppTemplateMessage).toHaveBeenCalledWith({
+      to: "+971501234567",
+      templateName: "document_expiry_summary",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: "Al Noor Typing Centre" },
+            { type: "text", text: "10" },
+            { type: "text", text: "2" },
+            { type: "text", text: "5" },
+            { type: "text", text: "3" },
+          ],
+        },
+      ],
     });
     expect(sendWhatsAppTextMessage).not.toHaveBeenCalled();
   });

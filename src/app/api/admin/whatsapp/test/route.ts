@@ -6,7 +6,7 @@ import { sendWhatsAppTemplateMessage, sendWhatsAppTextMessage } from "@/lib/what
 
 export const runtime = "nodejs";
 
-const testRequestSchema = z.discriminatedUnion("kind", [
+const testRequestSchema = z.union([
   z.object({
     kind: z.literal("text"),
     recipient: z.string().trim().min(8).max(32),
@@ -18,7 +18,18 @@ const testRequestSchema = z.discriminatedUnion("kind", [
     templateName: z.literal("hello_world"),
     languageCode: z.literal("en_US"),
   }),
+  z.object({
+    kind: z.literal("template"),
+    recipient: z.string().trim().min(8).max(32),
+    templateName: z.literal("document_expiry_summary"),
+    languageCode: z.literal("en"),
+  }),
 ]);
+
+const expirySummaryParameters = ["Al Noor Typing Centre", "10", "2", "5", "3"].map((text) => ({
+  type: "text",
+  text,
+}));
 const attempts = new Map<string, number[]>();
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
@@ -65,6 +76,10 @@ export async function POST(request: NextRequest) {
           to: parsed.data.recipient,
           templateName: parsed.data.templateName,
           languageCode: parsed.data.languageCode,
+          components:
+            parsed.data.templateName === "document_expiry_summary"
+              ? [{ type: "body", parameters: expirySummaryParameters }]
+              : undefined,
         })
       : await sendWhatsAppTextMessage({
           to: parsed.data.recipient,

@@ -19,7 +19,10 @@ export type WhatsAppSendResult =
       error: {
         type: "configuration" | "validation" | "timeout" | "network" | "meta_api";
         code?: number;
+        subcode?: number;
+        title?: string;
         message: string;
+        details?: string;
         requiresTemplate?: boolean;
       };
     };
@@ -102,7 +105,14 @@ async function send(
     );
     const payload = (await response.json().catch(() => ({}))) as {
       messages?: Array<{ id?: unknown }>;
-      error?: { code?: unknown; message?: unknown; type?: unknown };
+      error?: {
+        code?: unknown;
+        error_subcode?: unknown;
+        error_user_title?: unknown;
+        message?: unknown;
+        error_data?: { details?: unknown };
+        type?: unknown;
+      };
     };
     const messageId =
       typeof payload.messages?.[0]?.id === "string" ? payload.messages[0].id : undefined;
@@ -118,7 +128,11 @@ async function send(
       return { success: true, messageId, responseStatus: response.status };
     }
     const code = typeof payload.error?.code === "number" ? payload.error.code : undefined;
+    const subcode =
+      typeof payload.error?.error_subcode === "number" ? payload.error.error_subcode : undefined;
+    const title = cleanMetaMessage(payload.error?.error_user_title);
     const messageText = cleanMetaMessage(payload.error?.message);
+    const details = cleanMetaMessage(payload.error?.error_data?.details);
     const requiresTemplate = code === 131047 || /template/i.test(messageText);
     safeLog({
       event_type: "rejected",
@@ -126,12 +140,21 @@ async function send(
       whatsapp_business_account_id: config.businessAccountId,
       response_status: response.status,
       error_code: code,
+      error_subcode: subcode,
       tenant_id: input.tenantId,
     });
     return {
       success: false,
       responseStatus: response.status,
-      error: { type: "meta_api", code, message: messageText, requiresTemplate },
+      error: {
+        type: "meta_api",
+        code,
+        subcode,
+        title: title === "WhatsApp API request failed." ? undefined : title,
+        message: messageText,
+        details: details === "WhatsApp API request failed." ? undefined : details,
+        requiresTemplate,
+      },
     };
   } catch (error) {
     const type = error instanceof Error && error.name === "AbortError" ? "timeout" : "network";

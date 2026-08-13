@@ -16,7 +16,14 @@ type SendResponse = {
   success: boolean;
   messageId?: string;
   responseStatus?: number;
-  error?: { code?: number; message?: string; requiresTemplate?: boolean };
+  error?: {
+    code?: number;
+    subcode?: number;
+    title?: string;
+    message?: string;
+    details?: string;
+    requiresTemplate?: boolean;
+  };
 };
 const keys: Array<keyof ConfigurationStatus> = [
   "WHATSAPP_ACCESS_TOKEN",
@@ -28,7 +35,7 @@ const keys: Array<keyof ConfigurationStatus> = [
 export function WhatsAppTestControl() {
   const [configuration, setConfiguration] = useState<ConfigurationStatus | null>(null);
   const [recipient, setRecipient] = useState("");
-  const [sendKind, setSendKind] = useState<"text" | "template">("text");
+  const [sendKind, setSendKind] = useState<"text" | "hello_world" | "expiry_summary">("text");
   const [message, setMessage] = useState(defaultMessage);
   const [result, setResult] = useState<SendResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,9 +60,16 @@ export function WhatsAppTestControl() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          sendKind === "template"
+          sendKind === "hello_world"
             ? { kind: "template", recipient, templateName: "hello_world", languageCode: "en_US" }
-            : { kind: "text", recipient, message },
+            : sendKind === "expiry_summary"
+              ? {
+                  kind: "template",
+                  recipient,
+                  templateName: "document_expiry_summary",
+                  languageCode: "en",
+                }
+              : { kind: "text", recipient, message },
         ),
       });
       setResult((await response.json()) as SendResponse);
@@ -106,10 +120,13 @@ export function WhatsAppTestControl() {
             Send type
             <select
               value={sendKind}
-              onChange={(event) => setSendKind(event.target.value as "text" | "template")}
+              onChange={(event) =>
+                setSendKind(event.target.value as "text" | "hello_world" | "expiry_summary")
+              }
             >
               <option value="text">Free-form test message</option>
-              <option value="template">hello_world — English (US)</option>
+              <option value="hello_world">hello_world — English (US)</option>
+              <option value="expiry_summary">document_expiry_summary — English</option>
             </select>
           </label>
           {sendKind === "text" ? (
@@ -123,13 +140,18 @@ export function WhatsAppTestControl() {
                 rows={3}
               />
             </label>
-          ) : (
+          ) : sendKind === "hello_world" ? (
             <p>Active Meta template: hello_world (en_US). No parameters.</p>
+          ) : (
+            <p>
+              Active Meta template: document_expiry_summary (en). Fixed QA parameters: Al Noor
+              Typing Centre, 10, 2, 5, 3.
+            </p>
           )}
           <button className="primary-button" type="submit" disabled={loading}>
             {loading
               ? "Sending controlled test…"
-              : sendKind === "template"
+              : sendKind !== "text"
                 ? "Send one template test"
                 : "Send one test message"}
           </button>
@@ -148,6 +170,11 @@ export function WhatsAppTestControl() {
               <>
                 <p>{result.error?.message ?? "WhatsApp test send failed."}</p>
                 {result.error?.code !== undefined && <p>Meta error code: {result.error.code}</p>}
+                {result.error?.subcode !== undefined && (
+                  <p>Meta error subcode: {result.error.subcode}</p>
+                )}
+                {result.error?.title && <p>{result.error.title}</p>}
+                {result.error?.details && <p>{result.error.details}</p>}
                 {result.error?.requiresTemplate && (
                   <p>A Meta-approved template is required outside the customer-service window.</p>
                 )}

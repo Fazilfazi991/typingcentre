@@ -58,6 +58,7 @@ describe("renewals deep-link route", () => {
     renderToStaticMarkup(view);
     expect(getWorkspaceContext).toHaveBeenCalledWith(`/renewals?range=${range}`);
     expect(calls).toContainEqual(["eq", "organization_id", "tenant-a"]);
+    expect(calls.find(([method]) => method === "select")?.[1]).toContain("renewals!renewals_organization_id_document_id_fkey");
     expect(calls).toContainEqual(["gte", "expires_on", "2026-08-13"]);
     expect(calls).toContainEqual(["lt", "expires_on", upper]);
   });

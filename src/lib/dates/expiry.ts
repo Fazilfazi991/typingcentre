@@ -2,6 +2,8 @@ import { appConfig } from "@/lib/config/app";
 
 export type ExpiryStatus = "valid" | "expiring_soon" | "urgent" | "expires_today" | "expired" | "renewal_in_progress" | "unknown";
 export type ExpiryBucket = "expired" | "next-7-days" | "days-8-to-30";
+export type RenewalRange = "expired" | "today" | "7d" | "30d";
+export type ExpiryDigestBucket = "today" | "next7Days" | "next30Days";
 
 type ExpiryBoundaries = { today: string; tomorrow: string; day8: string; day31: string };
 
@@ -64,6 +66,41 @@ export function expiryBucketFromQuery(value: string | undefined): ExpiryBucket |
   if (value === "7-days") return "next-7-days";
   if (value === "30-days") return "days-8-to-30";
   return undefined;
+}
+
+export function renewalRangeFromQuery(value: string | undefined): RenewalRange | undefined {
+  return value === "expired" || value === "today" || value === "7d" || value === "30d" ? value : undefined;
+}
+
+export function renewalRangeLabel(range: RenewalRange) {
+  if (range === "expired") return "Expired documents";
+  if (range === "today") return "Expiring today";
+  if (range === "7d") return "Next 7 days";
+  return "Next 30 days";
+}
+
+export function renewalRangePath(range: RenewalRange) {
+  return `/renewals?range=${range}` as const;
+}
+
+export function expiryDigestBucketForDays(daysRemaining: number): ExpiryDigestBucket | undefined {
+  if (daysRemaining === 0) return "today";
+  if (daysRemaining >= 1 && daysRemaining <= 7) return "next7Days";
+  if (daysRemaining >= 8 && daysRemaining <= 30) return "next30Days";
+  return undefined;
+}
+
+/** Canonical cumulative attention windows used by dashboard and notification deep links. */
+export function applyRenewalRange<T extends { lt: Function; gte: Function }>(
+  query: T,
+  range: RenewalRange,
+  now = new Date(),
+  timezone: string = appConfig.timezone,
+): T {
+  const boundaries = expiryBoundaries(now, timezone);
+  if (range === "expired") return query.lt("expires_on", boundaries.today);
+  const upperBoundary = range === "today" ? boundaries.tomorrow : range === "7d" ? boundaries.day8 : boundaries.day31;
+  return query.gte("expires_on", boundaries.today).lt("expires_on", upperBoundary);
 }
 
 export function expiryQueryValue(bucket: ExpiryBucket) { return bucket === "next-7-days" ? "7-days" : bucket === "days-8-to-30" ? "30-days" : "expired"; }

@@ -3,6 +3,7 @@ import { cache } from "react";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { loginPathFor } from "@/lib/auth/validation";
 
 export type WorkspaceContext = {
   supabase: NonNullable<Awaited<ReturnType<typeof getSupabaseServerClient>>>;
@@ -13,12 +14,12 @@ export type WorkspaceContext = {
   subscription: { plan: string; status: string };
 };
 
-export const getWorkspaceContext = cache(async (): Promise<WorkspaceContext | null> => {
+export const getWorkspaceContext = cache(async (returnTo?: string): Promise<WorkspaceContext | null> => {
   noStore();
   const supabase = await getSupabaseServerClient();
   if (!supabase) return null;
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login" as never);
+  if (!user) redirect((returnTo ? loginPathFor(returnTo) : "/login") as never);
 
   const [{ data: profile }, { data: membership }] = await Promise.all([
     supabase.from("profiles").select("id, full_name, platform_role, status").eq("id", user.id).maybeSingle(),

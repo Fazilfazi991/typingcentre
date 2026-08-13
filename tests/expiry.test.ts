@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateDaysRemaining, determineExpiryStatus, dubaiDateTimeLocalValue, dubaiDateTimeToUtcISOString, expiryBucketFromQuery, getRelativeExpiryText } from "@/lib/dates/expiry";
+import { applyRenewalRange, calculateDaysRemaining, determineExpiryStatus, dubaiDateTimeLocalValue, dubaiDateTimeToUtcISOString, expiryBucketFromQuery, expiryDigestBucketForDays, getRelativeExpiryText, renewalRangeFromQuery, renewalRangePath } from "@/lib/dates/expiry";
 
 const now = new Date("2026-08-05T12:00:00Z");
 describe("expiry utilities", () => {
@@ -19,5 +19,32 @@ describe("expiry utilities", () => {
     expect(calculateDaysRemaining("2026-08-10", new Date("2026-08-09T20:30:00Z"))).toBe(0);
     expect(dubaiDateTimeToUtcISOString("2026-08-15T09:00")).toBe("2026-08-15T05:00:00.000Z");
     expect(dubaiDateTimeLocalValue("2026-08-15T05:00:00.000Z")).toBe("2026-08-15T09:00");
+  });
+  it("uses one canonical set of cumulative renewal attention windows", () => {
+    const calls: Array<[string, string]> = [];
+    const query = {
+      gte: (column: string, value: string) => (calls.push([`gte:${column}`, value]), query),
+      lt: (column: string, value: string) => (calls.push([`lt:${column}`, value]), query),
+    };
+    applyRenewalRange(query, "expired", now);
+    applyRenewalRange(query, "today", now);
+    applyRenewalRange(query, "7d", now);
+    applyRenewalRange(query, "30d", now);
+    expect(calls).toEqual([
+      ["lt:expires_on", "2026-08-05"],
+      ["gte:expires_on", "2026-08-05"], ["lt:expires_on", "2026-08-06"],
+      ["gte:expires_on", "2026-08-05"], ["lt:expires_on", "2026-08-13"],
+      ["gte:expires_on", "2026-08-05"], ["lt:expires_on", "2026-09-05"],
+    ]);
+    expect([0, 1, 7, 8, 30, 31].map(expiryDigestBucketForDays)).toEqual(["today", "next7Days", "next7Days", "next30Days", "next30Days", undefined]);
+  });
+  it("accepts only stable renewal query values", () => {
+    expect(renewalRangeFromQuery("expired")).toBe("expired");
+    expect(renewalRangeFromQuery("today")).toBe("today");
+    expect(renewalRangeFromQuery("7d")).toBe("7d");
+    expect(renewalRangeFromQuery("30d")).toBe("30d");
+    expect(renewalRangeFromQuery("tenant-a")).toBeUndefined();
+    expect(renewalRangePath("7d")).toBe("/renewals?range=7d");
+    expect(renewalRangePath("expired")).toBe("/renewals?range=expired");
   });
 });

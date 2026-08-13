@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { completeFollowUpAction } from "@/features/crm/actions";
-import { applyExpiryBucket, expiryBoundaries, formatDisplayDate, getRelativeExpiryText } from "@/lib/dates/expiry";
+import { applyRenewalRange, calculateDaysRemaining, expiryBoundaries, formatDisplayDate, getRelativeExpiryText, renewalRangePath, type RenewalRange } from "@/lib/dates/expiry";
+import { applyFollowUpDateFilter, followUpDatePath } from "@/lib/follow-ups/filters";
+import { isRelevantExpiryRecord, RENEWAL_RECORD_SELECT } from "@/lib/renewals/records";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 
 export const dynamic = "force-dynamic";
@@ -31,37 +33,48 @@ export default async function Dashboard() {
   if (!context) redirect("/account-inactive" as never);
 
   const now = new Date();
-  const { today, tomorrow, day8, day31 } = expiryBoundaries(now, context.organization.timezone);
-  const documentCount = (bucket: "expired" | "next-7-days" | "days-8-to-30") =>
-    applyExpiryBucket(context.supabase.from("documents").select("id", { count: "exact", head: true }).eq("organization_id", context.organization.id).is("archived_at", null), bucket, now, context.organization.timezone);
-  const documentPreview = (bucket: "expired" | "next-7-days" | "days-8-to-30") =>
-    applyExpiryBucket(context.supabase.from("documents").select("expires_on").eq("organization_id", context.organization.id).is("archived_at", null), bucket, now, context.organization.timezone).order("expires_on").limit(1);
+  const { day8, day31 } = expiryBoundaries(now, context.organization.timezone);
+  const renewalRecords = (range: RenewalRange) => applyRenewalRange(
+    context.supabase.from("documents").select(RENEWAL_RECORD_SELECT).eq("organization_id", context.organization.id).is("archived_at", null),
+    range,
+    now,
+    context.organization.timezone,
+  ).order("expires_on").limit(500);
+  const todayFollowUps = <T extends { gte: Function; lt: Function; neq: Function }>(query: T) =>
+    applyFollowUpDateFilter(query, "today", now, context.organization.timezone);
 
-  const [expiredResult, weekResult, monthResult, followUpResult, validResult, renewalResult, attentionResult, todaysFollowUpsResult, activityResult, expiredPreview, weekPreview, monthPreview, followUpPreview] = await Promise.all([
-    documentCount("expired"),
-    documentCount("next-7-days"),
-    documentCount("days-8-to-30"),
-    context.supabase.from("follow_ups").select("id", { count: "exact", head: true }).eq("organization_id", context.organization.id).gte("due_at", `${today}T00:00:00+04:00`).lt("due_at", `${tomorrow}T00:00:00+04:00`).neq("status", "completed"),
+  const [expiredResult, followUpResult, validResult, renewalResult, attentionResult, todaysFollowUpsResult, activityResult, followUpPreview, upcomingResult] = await Promise.all([
+    renewalRecords("expired"),
+    todayFollowUps(context.supabase.from("follow_ups").select("id", { count: "exact", head: true }).eq("organization_id", context.organization.id)),
     context.supabase.from("documents").select("id", { count: "exact", head: true }).eq("organization_id", context.organization.id).is("archived_at", null).gte("expires_on", day31).neq("status", "renewal_in_progress"),
     context.supabase.from("documents").select("id", { count: "exact", head: true }).eq("organization_id", context.organization.id).is("archived_at", null).eq("status", "renewal_in_progress"),
-    context.supabase.from("documents").select("id,document_number,expires_on,status,customer_id,company_id,customers(full_name),companies(name),organization_document_types(name)").eq("organization_id", context.organization.id).is("archived_at", null).lt("expires_on", day8).order("expires_on").limit(8),
-    context.supabase.from("follow_ups").select("id,due_at,status,note,customer_id,company_id,customers(full_name),companies(name)").eq("organization_id", context.organization.id).gte("due_at", `${today}T00:00:00+04:00`).lt("due_at", `${tomorrow}T00:00:00+04:00`).neq("status", "completed").order("due_at").limit(5),
+    context.supabase.from("documents").select("id,document_number,expires_on,status,archived_at,customer_id,company_id,customers(full_name,status,is_active,archived_at),companies(name,status,is_active,archived_at),branches(name,status,is_active,archived_at),organization_document_types(name,is_active)").eq("organization_id", context.organization.id).is("archived_at", null).lt("expires_on", day8).order("expires_on").limit(20),
+    todayFollowUps(context.supabase.from("follow_ups").select("id,due_at,status,note,customer_id,company_id,customers(full_name),companies(name)").eq("organization_id", context.organization.id)).order("due_at").limit(5),
     context.supabase.from("activity_logs").select("id,entity_type,message,created_at").eq("organization_id", context.organization.id).order("created_at", { ascending: false }).limit(5),
-    documentPreview("expired"), documentPreview("next-7-days"), documentPreview("days-8-to-30"),
-    context.supabase.from("follow_ups").select("due_at").eq("organization_id", context.organization.id).gte("due_at", `${today}T00:00:00+04:00`).lt("due_at", `${tomorrow}T00:00:00+04:00`).neq("status", "completed").order("due_at").limit(1),
+    todayFollowUps(context.supabase.from("follow_ups").select("due_at").eq("organization_id", context.organization.id)).order("due_at").limit(1),
+    renewalRecords("30d"),
   ]);
 
-  const expired = expiredResult.count ?? 0;
-  const week = weekResult.count ?? 0;
-  const month = monthResult.count ?? 0;
+  if (expiredResult.error) throw expiredResult.error;
+  if (upcomingResult.error) throw upcomingResult.error;
+  if (followUpResult.error) throw followUpResult.error;
+  if (todaysFollowUpsResult.error) throw todaysFollowUpsResult.error;
+
+  const expiredRecords = (expiredResult.data ?? []).filter(isRelevantExpiryRecord);
+  const expired = expiredRecords.length;
+  const upcoming = (upcomingResult.data ?? []).filter(isRelevantExpiryRecord);
+  const week = upcoming.filter((record) => (calculateDaysRemaining(record.expires_on, now, context.organization.timezone) ?? 31) <= 7).length;
+  const month = upcoming.length - week;
   const followUps = followUpResult.count ?? 0;
-  const attention = attentionResult.data ?? [];
+  const attention = (attentionResult.data ?? []).filter(isRelevantExpiryRecord).slice(0, 8);
   const todaysFollowUps = todaysFollowUpsResult.data ?? [];
+  const weekNearest = upcoming.find((record) => (calculateDaysRemaining(record.expires_on, now, context.organization.timezone) ?? 31) <= 7);
+  const monthNearest = upcoming[0];
   const cards = [
-    ["Expired", expired, "alert", "danger", expiredPreview.data?.[0] ? `Oldest: ${getRelativeExpiryText(expiredPreview.data[0].expires_on, now)}` : "No expired documents", "/documents?expiry=expired", `View ${expired} expired documents`],
-    ["Expiring in 7 days", week, "clock", "warning", weekPreview.data?.[0] ? `Next: ${getRelativeExpiryText(weekPreview.data[0].expires_on, now)}` : "Nothing due this week", "/documents?expiry=7-days", `View ${week} documents expiring within 7 days`],
-    ["Expiring in 30 days", month, "calendar", "info", monthPreview.data?.[0] ? `Nearest: ${getRelativeExpiryText(monthPreview.data[0].expires_on, now)}` : "Nothing due in 30 days", "/documents?expiry=30-days", `View ${month} documents expiring from day 8 through day 30`],
-    ["Follow-ups today", followUps, "checklist", "purple", followUpPreview.data?.[0] ? `Next: ${new Intl.DateTimeFormat("en-AE", { hour: "numeric", minute: "2-digit" }).format(new Date(followUpPreview.data[0].due_at))}` : "No follow-ups scheduled", "/follow-ups?date=today", `View ${followUps} follow-ups scheduled today`],
+    ["Expired", expired, "alert", "danger", expiredRecords[0] ? `Oldest: ${getRelativeExpiryText(expiredRecords[0].expires_on, now)}` : "No expired documents", renewalRangePath("expired"), `View ${expired} expired documents`],
+    ["Expiring in 7 days", week, "clock", "warning", weekNearest ? `Next: ${getRelativeExpiryText(weekNearest.expires_on, now)}` : "Nothing due this week", renewalRangePath("7d"), `View ${week} documents expiring within 7 days`],
+    ["Expiring in 30 days", week + month, "calendar", "info", monthNearest ? `Nearest: ${getRelativeExpiryText(monthNearest.expires_on, now)}` : "Nothing due in 30 days", renewalRangePath("30d"), `View ${week + month} documents expiring within 30 days`],
+    ["Follow-ups today", followUps, "checklist", "purple", followUpPreview.data?.[0] ? `Next: ${new Intl.DateTimeFormat("en-AE", { hour: "numeric", minute: "2-digit" }).format(new Date(followUpPreview.data[0].due_at))}` : "No follow-ups scheduled", followUpDatePath("today"), `View ${followUps} follow-ups scheduled today`],
   ] as const;
   const health = [["Valid", validResult.count ?? 0, "success"], ["Expiring soon", week + month, "warning"], ["Expired", expired, "danger"], ["Renewal in progress", renewalResult.count ?? 0, "purple"]] as const;
   const healthTotal = health.reduce((total, [, value]) => total + value, 0);

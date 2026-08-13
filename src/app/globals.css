@@ -1024,6 +1024,33 @@ th {
   color: #667085;
   margin-top: 3px;
 }
+.renewal-range-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.renewal-range-nav a {
+  border: 1px solid #cfe3ff;
+  border-radius: 9px;
+  padding: 9px 12px;
+  background: #fff;
+  color: var(--brand-primary);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+.renewal-range-nav a[aria-current="page"] {
+  background: var(--brand-primary);
+  color: #fff;
+}
+.renewals-table-panel small {
+  display: block;
+  margin-top: 4px;
+  color: #667085;
+}
+.renewal-mobile-card .table-action {
+  justify-self: start;
+}
 .archive-modal {
   position: absolute;
   right: 0;
@@ -1253,6 +1280,15 @@ th {
   }
   .mobile-card-list {
     display: grid;
+  }
+  .renewal-range-nav {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .renewal-range-nav a {
+    padding-inline: 7px;
+    text-align: center;
   }
   .archive-modal {
     position: fixed;

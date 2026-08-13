@@ -67,7 +67,7 @@ export function WhatsAppTestControl() {
                   kind: "template",
                   recipient,
                   templateName: "document_expiry_summary",
-                  languageCode: "en_US",
+                  languageCode: "en",
                 }
               : { kind: "text", recipient, message },
         ),
@@ -144,7 +144,7 @@ export function WhatsAppTestControl() {
             <p>Active Meta template: hello_world (en_US). No parameters.</p>
           ) : (
             <p>
-              Active Meta template: document_expiry_summary (en_US). Fixed QA parameters: Al Noor
+              Active Meta template: document_expiry_summary (en). Fixed QA parameters: Al Noor
               Typing Centre, 10, 2, 5, 3.
             </p>
           )}

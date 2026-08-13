@@ -116,7 +116,7 @@ describe("WhatsApp admin test route", () => {
           kind: "template",
           recipient: "+971501234567",
           templateName: "document_expiry_summary",
-          languageCode: "en_US",
+          languageCode: "en",
         }),
       }),
     );
@@ -126,7 +126,7 @@ describe("WhatsApp admin test route", () => {
     expect(sendWhatsAppTemplateMessage).toHaveBeenCalledWith({
       to: "+971501234567",
       templateName: "document_expiry_summary",
-      languageCode: "en_US",
+      languageCode: "en",
       components: [
         {
           type: "body",

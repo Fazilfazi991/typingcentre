@@ -11,6 +11,7 @@ import {
   readDocumentObject,
 } from "@/lib/r2/objects";
 import { extractDocument } from "@/lib/document-ai/extract-document";
+import { hasCurrentVersionAlreadyBeenAnalyzed } from "@/lib/document-ai/version-state";
 import { getR2Configuration } from "@/lib/r2/client";
 import {
   createDocumentObjectKey,
@@ -279,14 +280,20 @@ export async function extractUploadedDocument(input: unknown): Promise<SafeResul
   const context = await workspaceOrUnavailable();
   if (!context) return { ok: false, message: "Your workspace is unavailable." };
   const { data: version } = await context.supabase.from("document_versions")
-    .select("id, document_id, object_key, mime_type, upload_status")
+    .select("id, document_id, object_key, mime_type, upload_status, finalized_at")
     .eq("id", parsed.data.versionId).eq("document_id", parsed.data.documentId)
     .eq("organization_id", context.organization.id).maybeSingle();
   if (!version || version.upload_status !== "complete") return { ok: false, message: "Finish uploading the document before analysis." };
   const { data: document } = await context.supabase.from("documents")
-    .select("id, extraction_status, extraction_attempts").eq("id", version.document_id).eq("organization_id", context.organization.id).maybeSingle();
+    .select("id, current_version_id, extraction_status, extraction_attempts, extracted_at").eq("id", version.document_id).eq("organization_id", context.organization.id).maybeSingle();
   if (!document) return { ok: false, message: "The document is unavailable." };
-  if (document.extraction_status === "confirmed" || document.extraction_status === "review_required")
+  if (hasCurrentVersionAlreadyBeenAnalyzed({
+    versionId: version.id,
+    currentVersionId: document.current_version_id,
+    finalizedAt: version.finalized_at,
+    extractionStatus: document.extraction_status,
+    extractedAt: document.extracted_at,
+  }))
     return { ok: false, message: "This document has already been analyzed. Review it or upload a new version." };
 
   await context.supabase.from("documents").update({ extraction_status: "processing", extraction_attempts: document.extraction_attempts + 1 } as any).eq("id", document.id);

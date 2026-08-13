@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { getServerEnv } from "@/lib/config/env.server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { sendWhatsAppTextMessage } from "@/lib/whatsapp/sender";
 
@@ -64,4 +65,21 @@ export async function POST(request: NextRequest) {
     status: result.success ? 200 : result.error.type === "validation" ? 400 : 502,
     headers: { "Cache-Control": "no-store" },
   });
+}
+
+export async function GET() {
+  const user = await platformAdmin();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const env = getServerEnv();
+  return NextResponse.json(
+    {
+      configuration: {
+        WHATSAPP_ACCESS_TOKEN: Boolean(env.WHATSAPP_ACCESS_TOKEN),
+        WHATSAPP_PHONE_NUMBER_ID: Boolean(env.WHATSAPP_PHONE_NUMBER_ID),
+        WHATSAPP_BUSINESS_ACCOUNT_ID: Boolean(env.WHATSAPP_BUSINESS_ACCOUNT_ID),
+        WHATSAPP_WEBHOOK_VERIFY_TOKEN: Boolean(env.WHATSAPP_WEBHOOK_VERIFY_TOKEN),
+      },
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

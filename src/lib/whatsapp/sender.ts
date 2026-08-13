@@ -49,10 +49,16 @@ export function normalizeWhatsAppRecipient(value: string): string | null {
 
 function configuration() {
   const env = getServerEnv();
-  if (!env.WHATSAPP_ACCESS_TOKEN || !env.WHATSAPP_PHONE_NUMBER_ID) return null;
+  if (
+    !env.WHATSAPP_ACCESS_TOKEN ||
+    !env.WHATSAPP_PHONE_NUMBER_ID ||
+    !env.WHATSAPP_BUSINESS_ACCOUNT_ID
+  )
+    return null;
   return {
     accessToken: env.WHATSAPP_ACCESS_TOKEN,
     phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID,
+    businessAccountId: env.WHATSAPP_BUSINESS_ACCOUNT_ID,
     graphApiVersion: env.WHATSAPP_GRAPH_API_VERSION ?? DEFAULT_GRAPH_API_VERSION,
   };
 }
@@ -104,6 +110,7 @@ async function send(
       safeLog({
         event_type: "accepted",
         phone_number_id: config.phoneNumberId,
+        whatsapp_business_account_id: config.businessAccountId,
         message_id: messageId,
         response_status: response.status,
         tenant_id: input.tenantId,
@@ -116,6 +123,7 @@ async function send(
     safeLog({
       event_type: "rejected",
       phone_number_id: config.phoneNumberId,
+      whatsapp_business_account_id: config.businessAccountId,
       response_status: response.status,
       error_code: code,
       tenant_id: input.tenantId,
@@ -127,7 +135,12 @@ async function send(
     };
   } catch (error) {
     const type = error instanceof Error && error.name === "AbortError" ? "timeout" : "network";
-    safeLog({ event_type: type, phone_number_id: config.phoneNumberId, tenant_id: input.tenantId });
+    safeLog({
+      event_type: type,
+      phone_number_id: config.phoneNumberId,
+      whatsapp_business_account_id: config.businessAccountId,
+      tenant_id: input.tenantId,
+    });
     return {
       success: false,
       error: {

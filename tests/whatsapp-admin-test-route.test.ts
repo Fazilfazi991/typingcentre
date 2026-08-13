@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 const getSupabaseServerClient = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/server", () => ({ getSupabaseServerClient }));
 
-import { POST } from "@/app/api/admin/whatsapp/test/route";
+import { GET, POST } from "@/app/api/admin/whatsapp/test/route";
 
 describe("WhatsApp admin test route", () => {
   it("rejects anonymous requests before attempting a send", async () => {
@@ -17,5 +17,11 @@ describe("WhatsApp admin test route", () => {
     );
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it("does not expose configuration status to anonymous requests", async () => {
+    getSupabaseServerClient.mockResolvedValue(null);
+    const response = await GET();
+    expect(response.status).toBe(401);
   });
 });

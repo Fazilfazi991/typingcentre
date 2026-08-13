@@ -8,12 +8,14 @@ import {
 const originalEnvironment = {
   accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+  businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
   graphApiVersion: process.env.WHATSAPP_GRAPH_API_VERSION,
 };
 
 function configureSender() {
   process.env.WHATSAPP_ACCESS_TOKEN = "test-access-token";
   process.env.WHATSAPP_PHONE_NUMBER_ID = "123456789";
+  process.env.WHATSAPP_BUSINESS_ACCOUNT_ID = "987654321";
   process.env.WHATSAPP_GRAPH_API_VERSION = "v25.0";
 }
 
@@ -25,7 +27,9 @@ function restoreEnvironment(name: keyof typeof originalEnvironment) {
         ? "WHATSAPP_ACCESS_TOKEN"
         : name === "phoneNumberId"
           ? "WHATSAPP_PHONE_NUMBER_ID"
-          : "WHATSAPP_GRAPH_API_VERSION"
+          : name === "businessAccountId"
+            ? "WHATSAPP_BUSINESS_ACCOUNT_ID"
+            : "WHATSAPP_GRAPH_API_VERSION"
     ];
   else
     process.env[
@@ -33,7 +37,9 @@ function restoreEnvironment(name: keyof typeof originalEnvironment) {
         ? "WHATSAPP_ACCESS_TOKEN"
         : name === "phoneNumberId"
           ? "WHATSAPP_PHONE_NUMBER_ID"
-          : "WHATSAPP_GRAPH_API_VERSION"
+          : name === "businessAccountId"
+            ? "WHATSAPP_BUSINESS_ACCOUNT_ID"
+            : "WHATSAPP_GRAPH_API_VERSION"
     ] = value;
 }
 
@@ -41,12 +47,14 @@ describe("WhatsApp sender", () => {
   beforeEach(() => {
     delete process.env.WHATSAPP_ACCESS_TOKEN;
     delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+    delete process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
     delete process.env.WHATSAPP_GRAPH_API_VERSION;
   });
 
   afterEach(() => {
     restoreEnvironment("accessToken");
     restoreEnvironment("phoneNumberId");
+    restoreEnvironment("businessAccountId");
     restoreEnvironment("graphApiVersion");
   });
 
@@ -91,16 +99,14 @@ describe("WhatsApp sender", () => {
     configureSender();
     const result = await sendWhatsAppTextMessage(
       { to: "+971501234567", body: "Hello" },
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              error: { code: 131047, message: "Re-engagement message requires a template" },
-            }),
-            { status: 400 },
-          ),
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: { code: 131047, message: "Re-engagement message requires a template" },
+          }),
+          { status: 400 },
         ),
+      ),
     );
     expect(result).toMatchObject({
       success: false,

@@ -1,13 +1,14 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { expiryBoundaries, localDateTimeParts } from "@/lib/dates/expiry";
-import { digestDocumentCount } from "@/lib/email/expiry-email";
+import type { ExpiryDigest } from "@/lib/email/expiry-email";
 import { buildDigestFromRows } from "@/lib/notifications/expiry-notifications";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   EXPIRY_SUMMARY_TEMPLATE_LANGUAGE,
   EXPIRY_SUMMARY_TEMPLATE_NAME,
   buildDocumentExpirySummaryComponents,
+  expirySummaryTemplateConfig,
   type TenantExpiryCounts,
 } from "@/lib/whatsapp/expiry-template";
 import {
@@ -16,9 +17,11 @@ import {
   type WhatsAppSendResult,
 } from "@/lib/whatsapp/sender";
 
-const DELIVERY_WINDOW_MINUTES = 15;
+const DELIVERY_WINDOW_MINUTES = 60;
 const TENANT_BATCH_SIZE = 200;
 const SEND_CONCURRENCY = 5;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MINUTES = 15;
 
 export type WhatsAppTenant = {
   id: string;
@@ -65,6 +68,20 @@ export function isWithinWhatsAppDeliveryWindow(currentTime: string, configuredTi
   const current = minutes(currentTime);
   const configured = minutes(configuredTime);
   return current !== undefined && configured !== undefined && current >= configured && current - configured < DELIVERY_WINDOW_MINUTES;
+}
+
+export function cumulativeRenewalCounts(digest: ExpiryDigest): TenantExpiryCounts {
+  const today = digest.today.length;
+  const next7Days = today + digest.next7Days.length;
+  const next30Days = next7Days + digest.next30Days.length;
+  return { today, next7Days, next30Days, total: next30Days };
+}
+
+export function isRetryableWhatsAppFailure(result: Extract<WhatsAppSendResult, { success: false }>) {
+  if (result.error.type === "timeout" || result.error.type === "network") return true;
+  if (result.responseStatus === 408 || result.responseStatus === 429 || (result.responseStatus ?? 0) >= 500)
+    return true;
+  return [130429, 131000, 131016, 131048, 131056, 133004].includes(result.error.code ?? -1);
 }
 
 export async function dispatchWhatsAppExpiryForTenant(
@@ -116,6 +133,10 @@ export async function runWhatsAppExpiryNotifications(now = new Date()) {
   const admin = getSupabaseAdminClient();
   if (!admin) throw new Error("WhatsApp expiry scheduler requires server-side Supabase configuration.");
   const runId = randomUUID();
+  const template = expirySummaryTemplateConfig(
+    EXPIRY_SUMMARY_TEMPLATE_NAME,
+    EXPIRY_SUMMARY_TEMPLATE_LANGUAGE,
+  );
   const tenants: WhatsAppTenant[] = [];
   for (let from = 0; ; from += TENANT_BATCH_SIZE) {
     const { data, error } = await admin
@@ -144,42 +165,30 @@ export async function runWhatsAppExpiryNotifications(now = new Date()) {
         .is("archived_at", null)
         .order("expires_on");
       if (error) throw error;
-      const digest = buildDigestFromRows(data ?? [], now, tenant.timezone);
-      return {
-        today: digest.today.length,
-        next7Days: digest.next7Days.length,
-        next30Days: digest.next30Days.length,
-        total: digestDocumentCount(digest),
-      };
+      return cumulativeRenewalCounts(buildDigestFromRows(data ?? [], now, tenant.timezone));
     },
     async claim(tenant, localDate, counts) {
       const { data, error } = await admin
-        .from("whatsapp_notifications")
-        .insert({
-          organization_id: tenant.id,
-          notification_type: EXPIRY_SUMMARY_TEMPLATE_NAME,
-          summary_local_date: localDate,
-          recipient_phone: tenant.whatsapp_recipient_phone!,
-          template_name: EXPIRY_SUMMARY_TEMPLATE_NAME,
-          template_language: EXPIRY_SUMMARY_TEMPLATE_LANGUAGE,
-          expiring_today_count: counts.today,
-          next_7_days_count: counts.next7Days,
-          next_30_days_count: counts.next30Days,
-          total_count: counts.total,
-          status: "processing",
-        })
-        .select("id")
-        .maybeSingle();
-      if (error?.code === "23505") return null;
+        .rpc("claim_whatsapp_expiry_notification", {
+          p_organization_id: tenant.id,
+          p_summary_local_date: localDate,
+          p_recipient_phone: tenant.whatsapp_recipient_phone!,
+          p_template_name: template.name,
+          p_template_language: template.language,
+          p_expiring_today_count: counts.today,
+          p_next_7_days_count: counts.next7Days,
+          p_next_30_days_count: counts.next30Days,
+          p_total_count: counts.total,
+        });
       if (error) throw error;
-      return data?.id ?? null;
+      return typeof data === "string" ? data : null;
     },
     send(tenant, counts) {
       return sendWhatsAppTemplateMessage({
         to: tenant.whatsapp_recipient_phone!,
         tenantId: tenant.id,
-        templateName: EXPIRY_SUMMARY_TEMPLATE_NAME,
-        languageCode: EXPIRY_SUMMARY_TEMPLATE_LANGUAGE,
+        templateName: template.name,
+        languageCode: template.language,
         components: buildDocumentExpirySummaryComponents(tenant.name, counts),
       });
     },
@@ -187,7 +196,7 @@ export async function runWhatsAppExpiryNotifications(now = new Date()) {
       const acceptedAt = new Date().toISOString();
       const { data: notification, error } = await admin
         .from("whatsapp_notifications")
-        .update({ status: "accepted", meta_message_id: result.messageId ?? null, accepted_at: acceptedAt })
+        .update({ status: "accepted", meta_message_id: result.messageId ?? null, accepted_at: acceptedAt, next_retry_at: null })
         .eq("id", logId)
         .select("organization_id")
         .single();
@@ -200,6 +209,16 @@ export async function runWhatsAppExpiryNotifications(now = new Date()) {
     },
     async recordFailed(logId, result) {
       const failedAt = new Date().toISOString();
+      const { data: current, error: currentError } = await admin
+        .from("whatsapp_notifications")
+        .select("retry_count")
+        .eq("id", logId)
+        .single();
+      if (currentError) throw currentError;
+      const retryable = isRetryableWhatsAppFailure(result) && current.retry_count < MAX_RETRIES;
+      const nextRetryAt = retryable
+        ? new Date(Date.now() + RETRY_DELAY_MINUTES * 60 * 1000).toISOString()
+        : null;
       const { data: notification, error } = await admin
         .from("whatsapp_notifications")
         .update({
@@ -209,6 +228,9 @@ export async function runWhatsAppExpiryNotifications(now = new Date()) {
           meta_error_title: result.error.title?.slice(0, 500) ?? null,
           meta_error_message: result.error.message.slice(0, 500),
           meta_error_details: result.error.details?.slice(0, 500) ?? null,
+          retryable,
+          next_retry_at: nextRetryAt,
+          last_attempt_at: failedAt,
         })
         .eq("id", logId)
         .select("organization_id")

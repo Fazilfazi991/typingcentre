@@ -8,6 +8,22 @@ import type { DocumentExtraction } from "@/lib/document-ai/types";
 type TypeOption = { id: string; name: string };
 type Props = { documentId?: string; customerId?: string; companyId?: string; customerName?: string; companyName?: string; documentTypes: TypeOption[] };
 const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+const uploadTimeoutMs = 30_000;
+
+export async function uploadDocumentBinary(uploadUrl: string, contentType: string, file: File) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), uploadTimeoutMs);
+  try {
+    return await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: file,
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
 
 export function SmartUploadForm({ documentId: existingDocumentId, customerId, companyId, customerName, companyName, documentTypes }: Props) {
   const router = useRouter();
@@ -35,7 +51,14 @@ export function SmartUploadForm({ documentId: existingDocumentId, customerId, co
     setMessage(""); setStage("uploading");
     const started = await createDocumentUploadSession({ documentId: existingDocumentId ?? "", documentTypeId, customerId: customerId ?? "", companyId: companyId ?? "", displayName: file.name.replace(/\.[^.]+$/, "") || "Uploaded document", documentNumber: "", issueDate: "", expiryDate: "", notes: "", originalFilename: file.name, mimeType: file.type, fileSizeBytes: file.size });
     if (!started.ok) { setStage("failed"); setMessage(started.message); return; }
-    const response = await fetch(started.data.uploadUrl, { method: "PUT", headers: { "Content-Type": started.data.contentType }, body: file });
+    let response: Response;
+    try {
+      response = await uploadDocumentBinary(started.data.uploadUrl, started.data.contentType, file);
+    } catch {
+      setStage("failed");
+      setMessage("Private document storage could not be reached. Please retry in a moment.");
+      return;
+    }
     if (!response.ok) { setStage("failed"); setMessage("The file could not be uploaded. Please try again."); return; }
     const finalized = await finalizeDocumentUpload({ versionId: started.data.versionId });
     if (!finalized.ok) { setStage("failed"); setMessage(finalized.message); return; }

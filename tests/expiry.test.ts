@@ -38,7 +38,7 @@ describe("expiry utilities", () => {
       ["gte:expires_on", "2026-08-05"], ["lt:expires_on", "2026-09-05"],
       ["gte:expires_on", "2026-08-05"], ["lt:expires_on", "2026-11-04"],
     ]);
-    expect([0, 1, 7, 8, 30, 31].map(expiryDigestBucketForDays)).toEqual(["today", "next7Days", "next7Days", "next30Days", "next30Days", undefined]);
+    expect([-1, 0, 1, 7, 8, 30, 31].map(expiryDigestBucketForDays)).toEqual([undefined, "today", "next7Days", "next7Days", "next30Days", "next30Days", undefined]);
   });
   it("accepts only stable renewal query values", () => {
     expect(renewalRangeFromQuery("expired")).toBe("expired");

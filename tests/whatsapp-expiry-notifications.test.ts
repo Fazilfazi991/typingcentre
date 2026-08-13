@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   dispatchWhatsAppExpiryForTenant,
+  cumulativeRenewalCounts,
+  isRetryableWhatsAppFailure,
   isWithinWhatsAppDeliveryWindow,
   tenantLocalSchedule,
   type WhatsAppTenant,
@@ -16,7 +18,7 @@ const tenant: WhatsAppTenant = {
   whatsapp_recipient_phone: "+971501234567",
   whatsapp_notification_time: "09:00",
 };
-const counts = { today: 2, next7Days: 5, next30Days: 3, total: 10 };
+const counts = { today: 2, next7Days: 7, next30Days: 10, total: 10 };
 
 function dependencies(overrides: Record<string, unknown> = {}) {
   return {
@@ -37,10 +39,12 @@ describe("tenant WhatsApp expiry dispatcher", () => {
     expect(tenantLocalSchedule(new Date("2026-08-12T20:05:00Z"), "Asia/Kolkata")).toEqual({ date: "2026-08-13", time: "01:35" });
   });
 
-  it("accepts only the 15-minute window after the configured time", () => {
+  it("accepts the bounded retry window after the configured time", () => {
     expect(isWithinWhatsAppDeliveryWindow("09:00", "09:00")).toBe(true);
     expect(isWithinWhatsAppDeliveryWindow("09:14", "09:00")).toBe(true);
-    expect(isWithinWhatsAppDeliveryWindow("09:15", "09:00")).toBe(false);
+    expect(isWithinWhatsAppDeliveryWindow("09:15", "09:00")).toBe(true);
+    expect(isWithinWhatsAppDeliveryWindow("09:59", "09:00")).toBe(true);
+    expect(isWithinWhatsAppDeliveryWindow("10:00", "09:00")).toBe(false);
     expect(isWithinWhatsAppDeliveryWindow("08:59", "09:00")).toBe(false);
   });
 
@@ -92,13 +96,33 @@ describe("tenant WhatsApp expiry dispatcher", () => {
     expect(deps.send).toHaveBeenCalledOnce();
   });
 
+  it("matches cumulative dashboard boundaries without double-counting total documents", () => {
+    const document = (daysRemaining: number) => ({
+      subjectName: "QA",
+      documentType: "QA document",
+      expiresOn: "2026-08-13",
+      daysRemaining,
+    });
+    expect(cumulativeRenewalCounts({
+      today: [document(0)],
+      next7Days: [document(1), document(7)],
+      next30Days: [document(8), document(30)],
+    })).toEqual({ today: 1, next7Days: 3, next30Days: 5, total: 5 });
+  });
+
+  it("retries only transient failures", () => {
+    expect(isRetryableWhatsAppFailure({ success: false, error: { type: "network", message: "offline" } })).toBe(true);
+    expect(isRetryableWhatsAppFailure({ success: false, responseStatus: 429, error: { type: "meta_api", message: "rate limited" } })).toBe(true);
+    expect(isRetryableWhatsAppFailure({ success: false, responseStatus: 400, error: { type: "meta_api", code: 132001, message: "template unavailable" } })).toBe(false);
+  });
+
   it("keeps template body parameters in the approved order", () => {
     expect(buildDocumentExpirySummaryComponents(tenant.name, counts)).toEqual([{ type: "body", parameters: [
       { type: "text", text: "Al Noor Typing Centre" },
       { type: "text", text: "10" },
       { type: "text", text: "2" },
-      { type: "text", text: "5" },
-      { type: "text", text: "3" },
+      { type: "text", text: "7" },
+      { type: "text", text: "10" },
     ] }]);
   });
 });

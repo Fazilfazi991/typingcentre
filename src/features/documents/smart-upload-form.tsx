@@ -6,10 +6,10 @@ import { confirmDocumentExtraction, createDocumentUploadSession, extractUploaded
 import type { DocumentExtraction } from "@/lib/document-ai/types";
 
 type TypeOption = { id: string; name: string };
-type Props = { customerId?: string; companyId?: string; customerName?: string; companyName?: string; documentTypes: TypeOption[] };
+type Props = { documentId?: string; customerId?: string; companyId?: string; customerName?: string; companyName?: string; documentTypes: TypeOption[] };
 const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
-export function SmartUploadForm({ customerId, companyId, customerName, companyName, documentTypes }: Props) {
+export function SmartUploadForm({ documentId: existingDocumentId, customerId, companyId, customerName, companyName, documentTypes }: Props) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [documentTypeId, setDocumentTypeId] = useState(documentTypes[0]?.id ?? "");
@@ -33,7 +33,7 @@ export function SmartUploadForm({ customerId, companyId, customerName, companyNa
   async function begin() {
     if (!file || !canStart) { setMessage("Choose a PDF, JPEG, PNG, or WebP file up to 10 MB."); return; }
     setMessage(""); setStage("uploading");
-    const started = await createDocumentUploadSession({ documentTypeId, customerId: customerId ?? "", companyId: companyId ?? "", displayName: file.name.replace(/\.[^.]+$/, "") || "Uploaded document", documentNumber: "", issueDate: "", expiryDate: "", notes: "", originalFilename: file.name, mimeType: file.type, fileSizeBytes: file.size });
+    const started = await createDocumentUploadSession({ documentId: existingDocumentId ?? "", documentTypeId, customerId: customerId ?? "", companyId: companyId ?? "", displayName: file.name.replace(/\.[^.]+$/, "") || "Uploaded document", documentNumber: "", issueDate: "", expiryDate: "", notes: "", originalFilename: file.name, mimeType: file.type, fileSizeBytes: file.size });
     if (!started.ok) { setStage("failed"); setMessage(started.message); return; }
     const response = await fetch(started.data.uploadUrl, { method: "PUT", headers: { "Content-Type": started.data.contentType }, body: file });
     if (!response.ok) { setStage("failed"); setMessage("The file could not be uploaded. Please try again."); return; }

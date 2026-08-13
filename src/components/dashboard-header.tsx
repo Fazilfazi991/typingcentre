@@ -48,7 +48,7 @@ export function DashboardHeader({
 
   return (
     <header className="topbar">
-      <form className="global-search" role="search" action="/customers" onSubmit={submitSearch}>
+      <form className="global-search" role="search" action="/search" onSubmit={submitSearch}>
         <input name="search" aria-label="Search customers, companies or documents" placeholder="Search customers, companies or documents..." />
         <button type="submit" aria-label="Search">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.2 4.2"/></svg>

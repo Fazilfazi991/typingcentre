@@ -1,6 +1,8 @@
 type Relation<T> = T | T[] | null | undefined;
 
-export const RENEWAL_RECORD_SELECT = "id,organization_id,display_name,document_number,expires_on,status,archived_at,customer_id,company_id,branch_id,customers(full_name,status,is_active,archived_at),companies(name,status,is_active,archived_at),branches(name,status,is_active,archived_at),organization_document_types(name,is_active)";
+export const RENEWAL_RECORD_SELECT = "id,organization_id,display_name,document_number,issued_on,expires_on,status,archived_at,customer_id,company_id,branch_id,customers(id,full_name,phone,whatsapp_number,status,is_active,archived_at),companies(id,name,contact_phone,whatsapp_number,status,is_active,archived_at),branches(name,status,is_active,archived_at),organization_document_types(name,is_active)";
+
+export const RENEWAL_WORKFLOW_RECORD_SELECT = `${RENEWAL_RECORD_SELECT},renewals(id,status,started_at,completed_at,created_at,replacement_document_id),follow_ups(id,status,due_at)`;
 
 export function oneRelation<T>(value: Relation<T>) {
   return Array.isArray(value) ? value[0] : value;

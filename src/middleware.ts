@@ -19,7 +19,9 @@ export async function middleware(request: NextRequest) {
   });
 
   // Refreshes an existing session without adding authorization decisions here.
-  await supabase.auth.getUser();
+  // Verifies the signed JWT locally when asymmetric keys are available and
+  // safely refreshes through the auth server for legacy symmetric projects.
+  await supabase.auth.getClaims();
   return response;
 }
 

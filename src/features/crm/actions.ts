@@ -6,6 +6,7 @@ import { customerArchiveSchema, customerDatabaseError } from "@/features/crm/cus
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { safeDatabaseError } from "@/lib/workspace/utils";
 import { dubaiDateTimeToUtcISOString } from "@/lib/dates/expiry";
+import { safeNext } from "@/lib/auth/validation";
 import { branchSchema, companySchema, customerSchema, followUpSchema, followUpUpdateSchema, completeFollowUpSchema } from "./schemas";
 
 const emptyToNull = (value: string | undefined) => value?.trim() || null;
@@ -13,6 +14,9 @@ const emptyToNull = (value: string | undefined) => value?.trim() || null;
 function formValues(formData: FormData) {
   return Object.fromEntries(formData.entries());
 }
+
+const safeReturnTo = (formData: FormData, fallback: string) => safeNext(String(formData.get("returnTo") ?? "")) ?? fallback;
+const withResult = (path: string, value: string) => `${path}${path.includes("?") ? "&" : "?"}${value}`;
 
 async function workspaceOrRedirect() {
   const context = await getWorkspaceContext();
@@ -361,46 +365,46 @@ export async function updateCustomerAction(formData: FormData) {
 
 export async function createFollowUpAction(formData: FormData) {
   const parsed = followUpSchema.safeParse(formValues(formData));
-  const returnTo = String(formData.get("returnTo") ?? "/dashboard");
-  if (!parsed.success) redirect(`${returnTo}?error=validation` as never);
+  const returnTo = safeReturnTo(formData, "/follow-ups");
+  if (!parsed.success) redirect(withResult(returnTo, "error=validation") as never);
 
   const context = await workspaceOrRedirect();
   const customerId = emptyToNull(parsed.data.customerId); const companyId = emptyToNull(parsed.data.companyId);
   const relationshipError = await validateFollowUpRelationships(context, customerId, companyId);
-  if (relationshipError) redirect(`${returnTo}?error=${encodeURIComponent(relationshipError)}` as never);
+  if (relationshipError) redirect(withResult(returnTo, `error=${encodeURIComponent(relationshipError)}`) as never);
 
   const { data, error } = await context.supabase
     .from("follow_ups")
     .insert({
       organization_id: context.organization.id,
       customer_id: customerId, company_id: companyId, created_by: context.user.id,
-      due_at: parsed.data.dueAt,
+      due_at: dubaiDateTimeToUtcISOString(parsed.data.dueAt),
       note: emptyToNull(parsed.data.note),
     })
     .select("id")
     .single();
 
-  if (error || !data) redirect(`${returnTo}?error=${encodeURIComponent(safeDatabaseError(error))}` as never);
+  if (error || !data) redirect(withResult(returnTo, `error=${encodeURIComponent(safeDatabaseError(error))}`) as never);
 
   await log(context, "follow_up_created", "follow_up", data.id);
   revalidatePath("/dashboard");
   revalidatePath(returnTo);
-  redirect(`${returnTo}?followUp=created` as never);
+  redirect(withResult(returnTo, "followUp=created") as never);
 }
 
 export async function updateFollowUpAction(formData: FormData) {
-  const returnTo = String(formData.get("returnTo") ?? "/follow-ups");
+  const returnTo = safeReturnTo(formData, "/follow-ups");
   const parsed = followUpUpdateSchema.safeParse(formValues(formData));
-  if (!parsed.success) redirect(`${returnTo}?error=validation` as never);
+  if (!parsed.success) redirect(withResult(returnTo, "error=validation") as never);
   const context = await workspaceOrRedirect();
   const value = parsed.data;
   const customerId = emptyToNull(value.customerId); const companyId = emptyToNull(value.companyId); const relationshipError = await validateFollowUpRelationships(context, customerId, companyId);
-  if (relationshipError) redirect(`${returnTo}?error=${encodeURIComponent(relationshipError)}` as never);
-  const { data, error } = await context.supabase.from("follow_ups").update({ customer_id: customerId, company_id: companyId, due_at: value.dueAt, note: emptyToNull(value.note) }).eq("id", value.followUpId).eq("organization_id", context.organization.id).neq("status", "completed").select("id").maybeSingle();
-  if (error || !data) redirect(`${returnTo}?error=${encodeURIComponent(safeDatabaseError(error))}` as never);
+  if (relationshipError) redirect(withResult(returnTo, `error=${encodeURIComponent(relationshipError)}`) as never);
+  const { data, error } = await context.supabase.from("follow_ups").update({ customer_id: customerId, company_id: companyId, due_at: dubaiDateTimeToUtcISOString(value.dueAt), note: emptyToNull(value.note) }).eq("id", value.followUpId).eq("organization_id", context.organization.id).neq("status", "completed").select("id").maybeSingle();
+  if (error || !data) redirect(withResult(returnTo, `error=${encodeURIComponent(safeDatabaseError(error))}`) as never);
   await log(context, "follow_up_updated", "follow_up", data.id);
   revalidatePath("/dashboard"); revalidatePath("/follow-ups"); if (customerId) revalidatePath(`/customers/${customerId}`); if (companyId) revalidatePath(`/companies/${companyId}`);
-  redirect(`${returnTo}?followUp=updated` as never);
+  redirect(withResult(returnTo, "followUp=updated") as never);
 }
 
 export async function archiveCompanyAction(formData: FormData) {
@@ -447,15 +451,16 @@ export async function archiveCustomerAction(formData: FormData) {
 
 export async function completeFollowUpAction(formData: FormData) {
   const parsed = completeFollowUpSchema.safeParse(formValues(formData));
-  if (!parsed.success) redirect("/follow-ups?error=validation" as never);
+  const returnTo = safeReturnTo(formData, "/follow-ups");
+  if (!parsed.success) redirect(withResult(returnTo, "error=validation") as never);
   const context = await workspaceOrRedirect();
   const value = parsed.data;
   const { data: current } = await context.supabase.from("follow_ups").select("id,customer_id,company_id,status,next_follow_up_id").eq("id", value.followUpId).eq("organization_id", context.organization.id).maybeSingle();
-  if (!current || current.status === "completed") redirect("/follow-ups?error=unavailable" as never);
+  if (!current || current.status === "completed") redirect(withResult(returnTo, "error=unavailable") as never);
   let nextId: string | null = null;
   if (value.nextDueAt) {
     const { data: next, error: nextError } = await context.supabase.from("follow_ups").insert({ organization_id: context.organization.id, customer_id: current.customer_id, company_id: current.company_id, due_at: dubaiDateTimeToUtcISOString(value.nextDueAt), note: emptyToNull(value.nextNote), created_by: context.user.id }).select("id").single();
-    if (nextError || !next) redirect("/follow-ups?error=save" as never); nextId = next.id;
+    if (nextError || !next) redirect(withResult(returnTo, "error=save") as never); nextId = next.id;
   }
   const { data, error } = await context.supabase
     .from("follow_ups")
@@ -466,10 +471,10 @@ export async function completeFollowUpAction(formData: FormData) {
     .select("id")
     .maybeSingle();
 
-  if (error || !data) redirect(`/follow-ups?error=${encodeURIComponent(safeDatabaseError(error))}` as never);
+  if (error || !data) redirect(withResult(returnTo, `error=${encodeURIComponent(safeDatabaseError(error))}`) as never);
 
   await log(context, "follow_up_completed", "follow_up", data.id);
   revalidatePath("/dashboard");
   revalidatePath("/follow-ups"); if (current.customer_id) revalidatePath(`/customers/${current.customer_id}`); if (current.company_id) revalidatePath(`/companies/${current.company_id}`);
-  redirect("/follow-ups?followUp=completed" as never);
+  redirect(withResult(returnTo, "followUp=completed") as never);
 }

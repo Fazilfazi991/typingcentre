@@ -80,6 +80,8 @@ describe("renewals deep-link route", () => {
     expect(html).toContain("Acme LLC");
     expect(html).toContain("Deira Branch");
     expect(html).toContain("/companies/company-a");
+    expect(html).toContain("/renewals/customer-doc?range=30d");
+    expect(html).toContain("/renewals/company-doc?range=30d");
     expect(html).not.toContain("Tenant B Secret");
     expect(html).not.toContain("tenant-a");
     expect(html).toContain("mobile-card-list");

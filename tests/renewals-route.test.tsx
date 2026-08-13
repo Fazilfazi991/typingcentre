@@ -51,6 +51,7 @@ describe("renewals deep-link route", () => {
     ["today", "2026-08-14"],
     ["7d", "2026-08-21"],
     ["30d", "2026-09-13"],
+    ["90d", "2026-11-12"],
   ])("applies the authenticated tenant %s range", async (range, upper) => {
     const calls = contextWithRows();
     const view = await RenewalsPage({ searchParams: Promise.resolve({ range }) });

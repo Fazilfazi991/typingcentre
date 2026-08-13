@@ -17,8 +17,8 @@ export function DashboardShellSkeleton() {
           <span className="skeleton-actions" />
         </header>
         <section className="loading-content" aria-hidden="true">
-          <div className="skeleton-heading"><span className="skeleton-icon" /><span><i className="skeleton-line title" /><i className="skeleton-line subtitle" /></span></div>
-          <div className="skeleton-metrics">
+          <div className="skeleton-heading overview-kpi-loading-heading"><span className="skeleton-icon" /><span><i className="skeleton-line title" /><i className="skeleton-line subtitle" /></span></div>
+          <div className="skeleton-metrics overview-kpi-loading-grid">
             {metricCards.map((_, index) => <span className="skeleton-metric" key={index}><i className="skeleton-icon" /><b><i className="skeleton-line label" /><i className="skeleton-line count" /><i className="skeleton-line caption" /></b></span>)}
           </div>
           <div className="skeleton-panels"><span className="skeleton-panel" /><span className="skeleton-panel compact" /></div>

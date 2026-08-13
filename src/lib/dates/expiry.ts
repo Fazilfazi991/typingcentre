@@ -2,10 +2,10 @@ import { appConfig } from "@/lib/config/app";
 
 export type ExpiryStatus = "valid" | "expiring_soon" | "urgent" | "expires_today" | "expired" | "renewal_in_progress" | "unknown";
 export type ExpiryBucket = "expired" | "next-7-days" | "days-8-to-30";
-export type RenewalRange = "expired" | "today" | "7d" | "30d";
+export type RenewalRange = "expired" | "today" | "7d" | "30d" | "90d";
 export type ExpiryDigestBucket = "today" | "next7Days" | "next30Days";
 
-type ExpiryBoundaries = { today: string; tomorrow: string; day8: string; day31: string };
+type ExpiryBoundaries = { today: string; tomorrow: string; day8: string; day31: string; day91: string };
 
 function asDate(value: string | Date | undefined) {
   if (!value) return undefined;
@@ -44,7 +44,7 @@ export function dubaiDateTimeLocalValue(value: string | Date | undefined) {
 
 export function expiryBoundaries(now = new Date(), timezone: string = appConfig.timezone): ExpiryBoundaries {
   const today = dateParts(now, timezone);
-  return { today, tomorrow: addCalendarDays(today, 1), day8: addCalendarDays(today, 8), day31: addCalendarDays(today, 31) };
+  return { today, tomorrow: addCalendarDays(today, 1), day8: addCalendarDays(today, 8), day31: addCalendarDays(today, 31), day91: addCalendarDays(today, 91) };
 }
 
 export function localDateTimeParts(now = new Date(), timezone: string = appConfig.timezone) {
@@ -69,13 +69,14 @@ export function expiryBucketFromQuery(value: string | undefined): ExpiryBucket |
 }
 
 export function renewalRangeFromQuery(value: string | undefined): RenewalRange | undefined {
-  return value === "expired" || value === "today" || value === "7d" || value === "30d" ? value : undefined;
+  return value === "expired" || value === "today" || value === "7d" || value === "30d" || value === "90d" ? value : undefined;
 }
 
 export function renewalRangeLabel(range: RenewalRange) {
   if (range === "expired") return "Expired documents";
   if (range === "today") return "Expiring today";
   if (range === "7d") return "Next 7 days";
+  if (range === "90d") return "Next 90 days";
   return "Next 30 days";
 }
 
@@ -99,7 +100,7 @@ export function applyRenewalRange<T extends { lt: Function; gte: Function }>(
 ): T {
   const boundaries = expiryBoundaries(now, timezone);
   if (range === "expired") return query.lt("expires_on", boundaries.today);
-  const upperBoundary = range === "today" ? boundaries.tomorrow : range === "7d" ? boundaries.day8 : boundaries.day31;
+  const upperBoundary = range === "today" ? boundaries.tomorrow : range === "7d" ? boundaries.day8 : range === "90d" ? boundaries.day91 : boundaries.day31;
   return query.gte("expires_on", boundaries.today).lt("expires_on", upperBoundary);
 }
 

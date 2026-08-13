@@ -16,7 +16,7 @@ import { getWorkspaceContext } from "@/lib/workspace/context";
 
 export const dynamic = "force-dynamic";
 
-const ranges: RenewalRange[] = ["expired", "today", "7d", "30d"];
+const ranges: RenewalRange[] = ["expired", "today", "7d", "30d", "90d"];
 
 export default async function RenewalsPage({
   searchParams,

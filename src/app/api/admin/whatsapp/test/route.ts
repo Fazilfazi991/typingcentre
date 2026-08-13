@@ -22,7 +22,7 @@ const testRequestSchema = z.union([
     kind: z.literal("template"),
     recipient: z.string().trim().min(8).max(32),
     templateName: z.literal("document_expiry_summary"),
-    languageCode: z.literal("en"),
+    languageCode: z.literal("en_US"),
   }),
 ]);
 

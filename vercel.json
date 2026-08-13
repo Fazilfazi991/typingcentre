@@ -1,6 +1,3 @@
 {
-  "crons": [
-    { "path": "/api/internal/expiry-notifications", "schedule": "0 4 * * *" },
-    { "path": "/api/internal/whatsapp-expiry-notifications", "schedule": "*/15 * * * *" }
-  ]
+  "crons": [{ "path": "/api/internal/expiry-notifications", "schedule": "0 4 * * *" }]
 }

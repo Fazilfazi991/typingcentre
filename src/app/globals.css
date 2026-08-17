@@ -4454,6 +4454,29 @@ th {
   .app-shell > .sidebar .sidebar-logout { margin-top: 5px; font-size: 11px; }
 }
 @media (min-width: 761px) {
+  /* The demo header lives outside .app-stage, so it needs the same real compact sizing. */
+  .demo-workspace > .topbar { min-height: 64px; height: 64px; gap: 12px; padding: 8px 18px; }
+  .demo-workspace > .topbar .global-search { height: 40px; padding: 0 9px 0 14px; border-radius: 13px; }
+  .demo-workspace > .topbar .global-search input { padding-right: 44px; font-size: 13px; }
+  .demo-workspace > .topbar .global-search button { right: 7px; width: 32px; height: 32px; }
+  .demo-workspace > .topbar .global-search button svg { width: 20px; height: 20px; }
+  .demo-workspace > .topbar .topbar-actions { height: 40px; gap: 8px; }
+  .demo-workspace > .topbar .filters-button,
+  .demo-workspace > .topbar .new-button,
+  .demo-workspace > .topbar .icon-button,
+  .demo-workspace > .topbar .profile-menu > summary { height: 40px; border-radius: 12px; font-size: 13px; }
+  .demo-workspace > .topbar .filters-button { gap: 7px; padding: 0 13px; }
+  .demo-workspace > .topbar .filters-button svg { width: 18px; height: 18px; }
+  .demo-workspace > .topbar .new-button { gap: 8px; padding: 0 14px; }
+  .demo-workspace > .topbar .new-button > span { font-size: 22px; }
+  .demo-workspace > .topbar .icon-button { width: 40px; }
+  .demo-workspace > .topbar .notification-button svg { width: 20px; height: 20px; }
+  .demo-workspace > .topbar .profile-menu > summary { gap: 8px; padding: 0 10px 0 6px; }
+  .demo-workspace > .topbar .profile-avatar { width: 30px; height: 30px; font-size: 11px; }
+  .demo-workspace > .topbar .profile-copy { gap: 2px; }
+  .demo-workspace > .topbar .profile-copy b { font-size: 12px; }
+  .demo-workspace > .topbar .profile-copy small { max-width: 122px; font-size: 10px; }
+  .demo-workspace > .topbar .profile-chevron { font-size: 18px; }
   .app-stage .topbar { min-height: 64px; height: 64px; gap: 12px; padding: 8px 18px; }
   .app-stage .global-search { height: 40px; padding: 0 9px 0 14px; border-radius: 13px; }
   .app-stage .global-search input { padding-right: 44px; font-size: 13px; }

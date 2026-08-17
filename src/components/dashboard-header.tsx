@@ -13,7 +13,7 @@ export type DashboardHeaderIdentity = {
 export type DemoHeaderCommand =
   | { type: "navigate"; target: string }
   | { type: "filter"; range: "today" | "7d" | "30d" | "expired" }
-  | { type: "new"; target: "customer" | "company" | "followup" }
+  | { type: "new"; target: "document" | "customer" | "company" | "followup" }
   | { type: "search"; query: string }
   | { type: "logout" };
 
@@ -75,10 +75,12 @@ export function DashboardHeader({
           <summary className="new-button"><span aria-hidden>+</span> New <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
           <div>
             {demo ? <>
+              <button type="button" onClick={command({ type: "new", target: "document" })}>Document</button>
               <button type="button" onClick={command({ type: "new", target: "customer" })}>Customer</button>
               <button type="button" onClick={command({ type: "new", target: "company" })}>Company</button>
               <button type="button" onClick={command({ type: "new", target: "followup" })}>Follow-up</button>
             </> : <>
+              <Link href="/documents">Document</Link>
               <Link href="/customers/new">Customer</Link>
               <Link href="/companies/new">Company</Link>
               <Link href="/follow-ups">Follow-up</Link>

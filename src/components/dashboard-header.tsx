@@ -80,7 +80,7 @@ export function DashboardHeader({
               <button type="button" onClick={command({ type: "new", target: "company" })}>Company</button>
               <button type="button" onClick={command({ type: "new", target: "followup" })}>Follow-up</button>
             </> : <>
-              <Link href="/documents">Document</Link>
+              <Link href="/documents/upload">Document</Link>
               <Link href="/customers/new">Customer</Link>
               <Link href="/companies/new">Company</Link>
               <Link href="/follow-ups">Follow-up</Link>

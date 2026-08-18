@@ -15,6 +15,10 @@ const quickCustomerSchema = z.object({
   phone: z.string().trim().max(40),
 });
 
+function logScanClassificationOutcome(outcome: "tenant_mapping_missing" | "tenant_mapping_duplicate") {
+  process.stdout.write(`${JSON.stringify({ event: "quick_scan_classification", outcome })}\n`);
+}
+
 export async function createQuickScanCustomer(input: unknown) {
   const parsed = quickCustomerSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, message: "Enter the customer's name and phone number." };
@@ -87,7 +91,14 @@ export async function classifyPendingScan(pendingScanId: string) {
     const result = await new GeminiDocumentExtractor().classifyDocument({ bytes: await readDocumentObject(scan.object_key), mimeType: scan.mime_type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp", filename: "pending-scan" });
     if (!result.canonicalCode) return fallback("unresolved");
     const { data: types } = await context.supabase.from("organization_document_types").select("id,name").eq("organization_id", context.organization.id).eq("canonical_code", result.canonicalCode).eq("is_active", true);
-    if (!types?.length) return fallback("no_mapping"); if (types.length !== 1) return fallback("duplicate_mapping");
+    if (!types?.length) {
+      logScanClassificationOutcome("tenant_mapping_missing");
+      return fallback("no_mapping");
+    }
+    if (types.length !== 1) {
+      logScanClassificationOutcome("tenant_mapping_duplicate");
+      return fallback("duplicate_mapping");
+    }
     await context.supabase.from("pending_scans").update({ state: "classified", detected_canonical_code: result.canonicalCode, detected_document_type_id: types[0].id }).eq("id", scan.id).eq("organization_id", context.organization.id);
     return { ok: true as const, data: { status: "resolved" as const, canonicalCode: result.canonicalCode, tenantDocumentTypeId: types[0].id, displayName: types[0].name } };
   } catch { return fallback("provider_error"); }

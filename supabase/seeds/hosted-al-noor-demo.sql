@@ -14,9 +14,23 @@ begin
     where organization_id = target_organization_id and is_primary_owner and status = 'active';
   perform set_config('request.jwt.claim.sub', target_owner_id::text, true);
 
-  insert into public.organization_document_types (organization_id, name)
-  select target_organization_id, name from (values ('Passport'),('Emirates ID'),('Labour Card'),('Medical Insurance')) as demo(name)
-  where not exists (select 1 from public.organization_document_types t where t.organization_id = target_organization_id and t.name = demo.name);
+  insert into public.organization_document_types (organization_id, name, canonical_code, is_active)
+  select target_organization_id, name, canonical_code, true from (values
+    ('Emirates ID','emirates_id'),('Passport','passport'),('Driving Licence','driving_licence'),
+    ('Residence Visa','residence_visa'),('Visit Visa','visit_visa'),('Employment Visa','employment_visa'),
+    ('Family Visa','family_visa'),('Golden Visa','golden_visa'),('Labour Card','labour_card'),
+    ('Work Permit','work_permit'),('Medical Insurance','medical_insurance'),('Health Card','health_card'),
+    ('Medical Fitness Certificate','medical_fitness_certificate'),('Birth Certificate',null),
+    ('Marriage Certificate',null),('Educational Certificate',null),('Police Clearance Certificate',null),
+    ('Vehicle Registration / Mulkiya','vehicle_registration'),('Vehicle Insurance','vehicle_insurance'),
+    ('Vehicle Testing Certificate',null),('Trade Licence','trade_licence'),('Establishment Card','establishment_card'),
+    ('Immigration Card','immigration_card'),('MOHRE Establishment Card','mohre_establishment_card'),
+    ('Chamber of Commerce Certificate','chamber_certificate'),('VAT / Tax Registration','vat_tax_registration'),
+    ('Memorandum of Association','memorandum_of_association'),('Company Certificate',null),
+    ('Tenancy Contract / Ejari','tenancy_contract'),('NOC','noc'),('Power of Attorney','power_of_attorney'),('Other','other')
+  ) as demo(name, canonical_code)
+  on conflict (organization_id, name) do update
+    set is_active = true, canonical_code = excluded.canonical_code;
 
   insert into public.companies (organization_id, name, licence_number, contact_name, contact_phone, contact_email, city)
   select target_organization_id, name, licence, contact, phone, lower(replace(name, ' ', '.')) || '@demo.renewtrack.invalid', 'Dubai'

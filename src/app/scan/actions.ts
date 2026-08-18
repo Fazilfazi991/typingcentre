@@ -86,7 +86,7 @@ export async function classifyPendingScan(pendingScanId: string) {
   if (!context) return { ok: false as const, message: "Your session has expired. Please sign in again." };
   const { data: scan } = await context.supabase.from("pending_scans").select("id,object_key,mime_type,state").eq("id", pendingScanId).eq("organization_id", context.organization.id).maybeSingle();
   if (!scan?.object_key || !scan.mime_type || scan.state !== "classifying") return { ok: false as const, message: "The pending upload is unavailable." };
-  const fallback = async (reason: "unresolved" | "no_mapping" | "duplicate_mapping" | "provider_error") => { await context.supabase.from("pending_scans").update({ state: "classification_failed" }).eq("id", scan.id).eq("organization_id", context.organization.id); return { ok: true as const, data: { status: "manual_required" as const, reason } }; };
+  const fallback = async (reason: "unresolved" | "no_mapping" | "duplicate_mapping" | "provider_error") => { await context.supabase.from("pending_scans").update({ state: "classification_failed" }).eq("id", scan.id).eq("organization_id", context.organization.id).eq("state", "classifying"); return { ok: true as const, data: { status: "manual_required" as const, reason } }; };
   try {
     const result = await new GeminiDocumentExtractor().classifyDocument({ bytes: await readDocumentObject(scan.object_key), mimeType: scan.mime_type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp", filename: "pending-scan" });
     if (!result.canonicalCode) return fallback("unresolved");
@@ -99,7 +99,7 @@ export async function classifyPendingScan(pendingScanId: string) {
       logScanClassificationOutcome("tenant_mapping_duplicate");
       return fallback("duplicate_mapping");
     }
-    await context.supabase.from("pending_scans").update({ state: "classified", detected_canonical_code: result.canonicalCode, detected_document_type_id: types[0].id }).eq("id", scan.id).eq("organization_id", context.organization.id);
+    await context.supabase.from("pending_scans").update({ state: "classified", detected_canonical_code: result.canonicalCode, detected_document_type_id: types[0].id }).eq("id", scan.id).eq("organization_id", context.organization.id).eq("state", "classifying");
     return { ok: true as const, data: { status: "resolved" as const, canonicalCode: result.canonicalCode, tenantDocumentTypeId: types[0].id, displayName: types[0].name } };
   } catch { return fallback("provider_error"); }
 }

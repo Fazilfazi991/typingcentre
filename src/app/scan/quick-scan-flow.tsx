@@ -5,7 +5,7 @@ import "./quick-scan.css";
 
 import Link from "next/link";
 import React from "react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   classifyPendingScan,
   createPendingScanUpload,
@@ -51,6 +51,10 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [creating, setCreating] = useState(false);
+  const [resolvingType, setResolvingType] = useState(false);
+  const [classificationTimedOut, setClassificationTimedOut] = useState(false);
+  const classificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const manualPickerRequested = useRef(false);
   const selectedOwner = (ownerKind === "customer" ? customers : companies).find(
     (item) => item.id === ownerId,
   );
@@ -68,6 +72,27 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
       ),
     [ownerKind, customers, companies, query],
   );
+
+  useEffect(
+    () => () => {
+      if (classificationTimer.current) clearTimeout(classificationTimer.current);
+    },
+    [],
+  );
+
+  function clearClassificationTimer() {
+    if (classificationTimer.current) {
+      clearTimeout(classificationTimer.current);
+      classificationTimer.current = null;
+    }
+  }
+
+  function chooseTypeManually() {
+    manualPickerRequested.current = true;
+    clearClassificationTimer();
+    setMessage("");
+    setStep("type");
+  }
 
   function chooseFile(next: File | null) {
     if (!next) return;
@@ -125,6 +150,7 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
       return;
     }
     setPendingScanId(started.data.pendingScanId);
+    manualPickerRequested.current = false;
     setStep("verifying");
     const verified = await verifyPendingScanUpload(started.data.pendingScanId);
     if (!verified.ok) {
@@ -133,9 +159,15 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
       return;
     }
     setStep("classifying");
+    setClassificationTimedOut(false);
+    classificationTimer.current = setTimeout(() => {
+      if (!manualPickerRequested.current) setClassificationTimedOut(true);
+    }, 10_000);
     const classified = await classifyPendingScan(started.data.pendingScanId);
+    clearClassificationTimer();
+    if (manualPickerRequested.current) return;
     if (!classified.ok || classified.data.status === "manual_required") {
-      setMessage("We couldn't identify the document type.");
+      setMessage("");
       setStep("type");
       return;
     }
@@ -240,7 +272,7 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
         )}
         {step === "type" && (
           <>
-            <h1>Document type</h1>
+            <h1>Choose document type</h1>
             <p className="scan-owner-pill">
               For <b>{ownerLabel}</b> · <button onClick={() => setStep("owner")}>Change</button>
             </p>
@@ -252,17 +284,23 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
                 placeholder="Search types"
               />
             </label>
-            <label className="scan-field">
-              Document type
-              <select value={typeId} onChange={(event) => setTypeId(event.target.value)}>
-                <option value="">Choose type</option>
-                {filteredTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="scan-type-list" role="listbox" aria-label="Document types">
+              {filteredTypes.map((type) => (
+                <button
+                  key={type.id}
+                  type="button"
+                  role="option"
+                  aria-selected={typeId === type.id}
+                  className={typeId === type.id ? "selected" : ""}
+                  onClick={() => setTypeId(type.id)}
+                >
+                  {type.name}
+                </button>
+              ))}
+              {documentTypes.length > 0 && filteredTypes.length === 0 && (
+                <p className="scan-help">No document types match that search.</p>
+              )}
+            </div>
             {!documentTypes.length && (
               <p className="scan-error">
                 No active document types are configured for this workspace.
@@ -274,12 +312,16 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
             {message && <p className="scan-error">{message}</p>}
             <button
               className="scan-primary scan-sticky"
-              disabled={!typeId}
+              disabled={!typeId || resolvingType}
               onClick={async () => {
+                if (!pendingScanId || !typeId) return;
+                setResolvingType(true);
+                setMessage("");
                 const result = await resolvePendingScanType({
                   pendingScanId,
                   documentTypeId: typeId,
                 });
+                setResolvingType(false);
                 if (!result.ok) {
                   setMessage("We couldn't save the document type. Try again.");
                   return;
@@ -292,7 +334,7 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
                 setStep("type_resolved");
               }}
             >
-              Continue
+              {resolvingType ? "Saving…" : "Continue"}
             </button>
           </>
         )}
@@ -364,8 +406,15 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
             <p>
               {step === "verifying"
                 ? "Making sure your document uploaded correctly."
-                : "Checking the document type."}
+                : classificationTimedOut
+                  ? "Still working…"
+                  : "This usually takes a few seconds."}
             </p>
+            {step === "classifying" && (
+              <button className="scan-secondary" onClick={chooseTypeManually}>
+                Choose type manually
+              </button>
+            )}
           </div>
         )}
         {step === "detected" && resolvedType && (

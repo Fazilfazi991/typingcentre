@@ -1,9 +1,11 @@
+import React from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArchiveDialog } from "@/components/archive-dialog";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { archiveCustomerAction, createFollowUpAction } from "@/features/crm/actions";
 import { customerCanMutate, customerEditPath, isSafeUuid } from "@/features/crm/customer-utils";
+import { formatDisplayDate, getRelativeExpiryText } from "@/lib/dates/expiry";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +25,7 @@ export default async function CustomerDetail({
 
   const queryParams = await searchParams;
   const error = typeof queryParams.error === "string" ? queryParams.error : "";
-  const [{ data: customer }, { data: followUps }, { data: activity }] = await Promise.all([
+  const [{ data: customer }, { data: followUps }, { data: activity }, { data: documents, error: documentsError }] = await Promise.all([
     context.supabase
       .from("customers")
       .select("*,companies(name),branches(name)")
@@ -32,9 +34,19 @@ export default async function CustomerDetail({
       .maybeSingle(),
     context.supabase.from("follow_ups").select("id,due_at,status,note").eq("customer_id", customerId).order("due_at").limit(6),
     context.supabase.from("activity_logs").select("id,message,created_at").order("created_at", { ascending: false }).limit(5),
+    // Documents are owned directly by their customer_id.  Do not infer ownership
+    // through the customer's linked company, activity history, or file versions.
+    context.supabase
+      .from("documents")
+      .select("id,display_name,document_number,expires_on,status,current_version_id,organization_document_types(name)")
+      .eq("organization_id", context.organization.id)
+      .eq("customer_id", customerId)
+      .is("archived_at", null)
+      .order("expires_on", { ascending: true }),
   ]);
 
   if (!customer) notFound();
+  if (documentsError) throw documentsError;
 
   const canMutate = customerCanMutate(customer);
 
@@ -51,7 +63,7 @@ export default async function CustomerDetail({
           {error && <p className="form-error">{decodeURIComponent(error)}</p>}
         </div>
         {canMutate && (
-          <div className="actions">
+          <div className="customer-detail-actions">
             <Link className="primary-button" href={customerEditPath(customer.id)}>
               Edit customer
             </Link>
@@ -161,7 +173,32 @@ export default async function CustomerDetail({
         </article>
         <article className="panel">
           <h2>Documents and renewals</h2>
-          <p className="empty-state">Upload a scanned document and review AI-extracted data before it is saved.</p>
+          {documents?.length ? (
+            <div className="stack">
+              {documents.map((document) => {
+                const documentType = Array.isArray(document.organization_document_types)
+                  ? document.organization_document_types[0]
+                  : document.organization_document_types;
+                const hasExpiry = Boolean(document.expires_on);
+                return (
+                  <div className="row" key={document.id}>
+                    <span>
+                      <b>{documentType?.name || document.display_name || "Document"}</b>
+                      <small>Number: {document.document_number || "Not recorded"}</small>
+                      <small>Expiry: {hasExpiry ? formatDisplayDate(document.expires_on) : "No expiry date"}</small>
+                      <small>{hasExpiry ? getRelativeExpiryText(document.expires_on) : "No expiry date"}</small>
+                    </span>
+                    <span className="actions">
+                      <span className="status-pill">{document.status.replace(/_/g, " ")}</span>
+                      <Link className="text-link" href={`/documents/${document.id}`}>View document</Link>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="empty-state">No documents added yet.</p>
+          )}
           {canMutate && <Link className="text-link" href={`/documents/upload?customerId=${customer.id}`}>Upload &amp; Auto Fill</Link>}
         </article>
       </section>

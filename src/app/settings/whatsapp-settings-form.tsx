@@ -36,7 +36,7 @@ export function WhatsAppSettingsForm({
     <form action={testAction} style={{ padding: "0 24px 24px" }}>
       {testState.success && <p className="settings-alert success" role="status">Test WhatsApp sent</p>}
       {testState.error && <p className="settings-alert error" role="alert">{testState.error}</p>}
-      <button className="secondary-button" type="submit" disabled={testPending} aria-disabled={testPending}>{testPending ? "Sending…" : "Send test WhatsApp"}</button>
+      <button className="secondary-button" type="submit" disabled={testPending} aria-disabled={testPending} style={{ padding: "8px 12px", fontSize: "0.875rem" }}>{testPending ? "Sending…" : "Send test WhatsApp"}</button>
     </form>
   </>;
 }

@@ -31,7 +31,7 @@ export function WhatsAppSettingsForm({
       <label><span>Recipient WhatsApp number</span><input name="phone" inputMode="tel" placeholder="+971501234567" defaultValue={settings.phone} disabled={pending}/><small>Use E.164 international format.</small></label>
       <label><span>Delivery time</span><input name="time" type="time" defaultValue={settings.time} disabled={pending}/></label>
       <label><span>Timezone</span><input value={timezone} readOnly/><small>This uses the workspace timezone to avoid conflicting schedules.</small></label>
-      <button className="secondary-button" type="submit" disabled={pending} aria-disabled={pending} style={{ justifySelf: "start", width: "auto", minWidth: 0, minHeight: 0, height: "auto", padding: "8px 12px", fontSize: "0.875rem" }}>{pending ? "Saving…" : "Save WhatsApp settings"}</button>
+      <button className="primary-button whatsapp-save-button" type="submit" disabled={pending} aria-disabled={pending}>{pending ? "Saving…" : "Save WhatsApp settings"}</button>
     </form>
     <form action={testAction} style={{ padding: "0 24px 24px" }}>
       {testState.success && <p className="settings-alert success" role="status">Test WhatsApp sent</p>}

@@ -6,14 +6,18 @@ import "./quick-scan.css";
 import Link from "next/link";
 import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   classifyPendingScan,
   createPendingScanUpload,
   createQuickScanCustomer,
+  extractPendingScan,
+  finalizePendingScan,
   resolvePendingScanType,
   verifyPendingScanUpload,
 } from "./actions";
 import { uploadDocumentBinary } from "@/features/documents/smart-upload-form";
+import type { DocumentExtraction } from "@/lib/document-ai/types";
 
 type Owner = { id: string; full_name?: string; name?: string; phone?: string | null };
 type TypeOption = { id: string; name: string };
@@ -23,6 +27,7 @@ const accepted = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 export function QuickScanFlow({ customers: initialCustomers, companies, documentTypes }: Props) {
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
+  const router = useRouter();
   const [step, setStep] = useState<
     | "owner"
     | "type"
@@ -32,6 +37,10 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
     | "classifying"
     | "detected"
     | "type_resolved"
+    | "extracting"
+    | "review"
+    | "extraction_failed"
+    | "saved"
   >("owner");
   const [ownerKind, setOwnerKind] = useState<"customer" | "company">("customer");
   const [ownerId, setOwnerId] = useState("");
@@ -53,6 +62,10 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
   const [creating, setCreating] = useState(false);
   const [resolvingType, setResolvingType] = useState(false);
   const [classificationTimedOut, setClassificationTimedOut] = useState(false);
+  const [extraction, setExtraction] = useState<DocumentExtraction | null>(null);
+  const [review, setReview] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [savedDocumentId, setSavedDocumentId] = useState("");
   const classificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const manualPickerRequested = useRef(false);
   const selectedOwner = (ownerKind === "customer" ? customers : companies).find(
@@ -93,6 +106,38 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
     setMessage("");
     setStep("type");
   }
+
+  function applyExtraction(data: DocumentExtraction) {
+    setExtraction(data);
+    setReview({
+      displayName: data.document_name,
+      documentNumber: data.document_number ?? "",
+      issueDate: data.issue_date ?? "",
+      expiryDate: data.expiry_date ?? "",
+      subjectName: data.subject_name ?? "",
+      dateOfBirth: data.date_of_birth ?? "",
+      nationality: data.nationality ?? "",
+      issuingAuthority: data.issuing_authority ?? "",
+      secondaryIdentifiers: JSON.stringify(data.secondary_identifiers, null, 2),
+      additionalFields: JSON.stringify(data.additional_fields, null, 2),
+    });
+  }
+
+  function enterDetailsManually() {
+    applyExtraction({ document_type: "other", document_name: resolvedType?.name || "Document", document_number: null, subject_type: "unknown", subject_name: null, issue_date: null, expiry_date: null, date_of_birth: null, nationality: null, issuing_authority: null, secondary_identifiers: [], additional_fields: {}, confidence: { document_type: "low", document_number: "low", issue_date: "low", expiry_date: "low", subject_name: "low" }, warnings: ["Entered manually after extraction was unavailable."] });
+    setMessage(""); setStep("review");
+  }
+
+  useEffect(() => {
+    if (step !== "type_resolved" || !pendingScanId || extraction) return;
+    let active = true;
+    void extractPendingScan(pendingScanId).then((result) => {
+      if (!active) return;
+      if (!result.ok) { setMessage(result.message); setStep("extraction_failed"); return; }
+      applyExtraction(result.data.extraction as DocumentExtraction); setStep("review");
+    });
+    return () => { active = false; };
+  }, [step, pendingScanId, extraction]);
 
   function chooseFile(next: File | null) {
     if (!next) return;
@@ -432,10 +477,78 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
           </div>
         )}
         {step === "type_resolved" && resolvedType && (
+          <div className="scan-processing">
+            <span className="progress-spinner" />
+            <h1>Reading document…</h1>
+            <p>Extracting details for {resolvedType.name}.</p>
+            <button className="scan-secondary" onClick={enterDetailsManually}>Enter details manually</button>
+          </div>
+        )}
+        {step === "extracting" && (
+          <div className="scan-processing">
+            <span className="progress-spinner" />
+            <h1>Reading document…</h1>
+            <p>Extracting details for your review.</p>
+            <button className="scan-secondary" onClick={enterDetailsManually}>Enter details manually</button>
+          </div>
+        )}
+        {step === "extraction_failed" && (
           <div className="scan-saved">
-            <p>Document type ready</p>
+            <h1>We couldn&apos;t read all the details.</h1>
+            <p>Your uploaded document is safe. You can retry or enter the details manually.</p>
+            <div className="scan-capture-actions">
+              <button className="scan-secondary" onClick={() => { setMessage(""); setStep("type_resolved"); }}>Try again</button>
+              <button className="scan-primary" onClick={enterDetailsManually}>Enter details manually</button>
+            </div>
+          </div>
+        )}
+        {step === "review" && extraction && resolvedType && (
+          <section className="scan-review">
+            <p className="scan-progress">Review document</p>
             <h1>{resolvedType.name}</h1>
-            <p>Ready for detail extraction.</p>
+            <p className="scan-copy">For <b>{ownerLabel}</b>. Check the extracted details before saving.</p>
+            <label className="scan-field">Document name<input value={review.displayName ?? ""} onChange={(event) => setReview((value) => ({ ...value, displayName: event.target.value }))} /></label>
+            <label className="scan-field">Document number<input value={review.documentNumber ?? ""} onChange={(event) => setReview((value) => ({ ...value, documentNumber: event.target.value }))} /></label>
+            <label className="scan-field">Expiry date<input type="date" value={review.expiryDate ?? ""} onChange={(event) => setReview((value) => ({ ...value, expiryDate: event.target.value }))} /></label>
+            <label className="scan-field">Issue date<input type="date" value={review.issueDate ?? ""} onChange={(event) => setReview((value) => ({ ...value, issueDate: event.target.value }))} /></label>
+            <label className="scan-field">Full name<input value={review.subjectName ?? ""} onChange={(event) => setReview((value) => ({ ...value, subjectName: event.target.value }))} /></label>
+            <label className="scan-field">Date of birth<input type="date" value={review.dateOfBirth ?? ""} onChange={(event) => setReview((value) => ({ ...value, dateOfBirth: event.target.value }))} /></label>
+            <label className="scan-field">Nationality<input value={review.nationality ?? ""} onChange={(event) => setReview((value) => ({ ...value, nationality: event.target.value }))} /></label>
+            <label className="scan-field">Issuing authority<input value={review.issuingAuthority ?? ""} onChange={(event) => setReview((value) => ({ ...value, issuingAuthority: event.target.value }))} /></label>
+            <label className="scan-field">Other identifiers<textarea value={review.secondaryIdentifiers ?? "[]"} onChange={(event) => setReview((value) => ({ ...value, secondaryIdentifiers: event.target.value }))} /></label>
+            <label className="scan-field">Other extracted details<textarea value={review.additionalFields ?? "{}"} onChange={(event) => setReview((value) => ({ ...value, additionalFields: event.target.value }))} /></label>
+            {message && <p className="scan-error">{message}</p>}
+            <button className="scan-primary scan-sticky" disabled={saving || !(review.displayName ?? "").trim()} onClick={async () => {
+              setSaving(true); setMessage("");
+              let secondaryIdentifiers = extraction.secondary_identifiers;
+              let additionalFields = extraction.additional_fields;
+              try {
+                const parsed = JSON.parse(review.secondaryIdentifiers || "[]");
+                if (!Array.isArray(parsed)) throw new Error("not an array");
+                secondaryIdentifiers = parsed;
+                const details = JSON.parse(review.additionalFields || "{}");
+                if (!details || typeof details !== "object" || Array.isArray(details)) throw new Error("not an object");
+                additionalFields = details;
+              } catch {
+                setMessage("Other identifiers and details must use valid JSON."); setSaving(false); return;
+              }
+              const edited: DocumentExtraction = { ...extraction, document_name: review.displayName, document_number: review.documentNumber || null, issue_date: review.issueDate || null, expiry_date: review.expiryDate || null, subject_name: review.subjectName || null, date_of_birth: review.dateOfBirth || null, nationality: review.nationality || null, issuing_authority: review.issuingAuthority || null, secondary_identifiers: secondaryIdentifiers, additional_fields: additionalFields };
+              const result = await finalizePendingScan({ pendingScanId, displayName: review.displayName, documentNumber: review.documentNumber, issueDate: review.issueDate, expiryDate: review.expiryDate, extractionData: edited });
+              setSaving(false);
+              if (!result.ok) { setMessage(result.message); return; }
+              setSavedDocumentId(result.data.documentId); setStep("saved"); router.refresh();
+            }}>{saving ? "Saving…" : "Confirm & Save"}</button>
+          </section>
+        )}
+        {step === "saved" && resolvedType && (
+          <div className="scan-saved">
+            <span className="success-mark" aria-hidden>✓</span><p>Document saved</p><h1>{resolvedType.name}</h1>
+            <p>{ownerLabel}{review.expiryDate ? ` · Expires ${review.expiryDate}` : ""}</p>
+            <div className="scan-capture-actions">
+              <button className="scan-primary" onClick={() => { setPendingScanId(""); setFile(null); setPreview(""); setResolvedType(null); setExtraction(null); setReview({}); setMessage(""); setStep("capture"); }}>Scan another</button>
+              <button className="scan-secondary" onClick={() => router.push(savedDocumentId ? `/documents/${savedDocumentId}` : "/documents")}>View document</button>
+            </div>
+            <button className="scan-secondary" onClick={() => router.push(ownerKind === "customer" ? `/customers/${ownerId}` : `/companies/${ownerId}`)}>View {ownerKind}</button>
           </div>
         )}
       </section>

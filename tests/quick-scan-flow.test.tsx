@@ -17,7 +17,11 @@ const mocks = vi.hoisted(() => ({
   verify: vi.fn(),
   classify: vi.fn(),
   resolve: vi.fn(),
+  extract: vi.fn(),
+  finalize: vi.fn(),
   upload: vi.fn(),
+  push: vi.fn(),
+  refresh: vi.fn(),
 }));
 
 vi.mock("next/link", () => ({
@@ -25,11 +29,14 @@ vi.mock("next/link", () => ({
     <a {...props}>{children}</a>
   ),
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }));
 vi.mock("@/app/scan/actions", () => ({
   createPendingScanUpload: mocks.create,
   verifyPendingScanUpload: mocks.verify,
   classifyPendingScan: mocks.classify,
   resolvePendingScanType: mocks.resolve,
+  extractPendingScan: mocks.extract,
+  finalizePendingScan: mocks.finalize,
   createQuickScanCustomer: vi.fn(),
 }));
 vi.mock("@/features/documents/smart-upload-form", () => ({ uploadDocumentBinary: mocks.upload }));
@@ -81,6 +88,60 @@ beforeEach(() => {
       resolutionSource: "manual",
     },
   });
+  mocks.extract.mockReset().mockImplementation(() => new Promise(() => {}));
+  mocks.finalize.mockReset();
+  mocks.push.mockReset();
+  mocks.refresh.mockReset();
+});
+
+const extraction = {
+  document_type: "passport", document_name: "Demo Passport", document_number: "P-12345",
+  subject_type: "person", subject_name: "Demo Customer", issue_date: "2025-08-01", expiry_date: "2026-08-20",
+  date_of_birth: "1990-01-01", nationality: "Demo", issuing_authority: "Demo Authority",
+  secondary_identifiers: [{ label: "File", value: "A1" }], additional_fields: { sponsor: "Demo Co" },
+  confidence: { document_type: "high", document_number: "high", issue_date: "high", expiry_date: "high", subject_name: "high" }, warnings: [],
+};
+
+describe("Quick Scan Stage 3 client orchestration", () => {
+  async function reachReview(user: ReturnType<typeof userEvent.setup>) {
+    mocks.extract.mockResolvedValueOnce({ ok: true, data: { extraction, cached: false } });
+    renderFlow();
+    await chooseOwnerAndFile(user);
+    await screen.findByText("Detected document");
+    await user.click(await screen.findByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Passport" });
+  }
+
+  it("automatically extracts, allows edits, saves once, and exposes canonical routes", async () => {
+    const user = userEvent.setup();
+    mocks.finalize.mockResolvedValueOnce({ ok: true, data: { documentId: "88888888-8888-4888-8888-888888888888", customerId, companyId: null } });
+    await reachReview(user);
+    expect(mocks.extract).toHaveBeenCalledWith(pendingScanId);
+    const number = screen.getByLabelText("Document number");
+    await user.clear(number); await user.type(number, "P-CORRECTED");
+    await user.click(screen.getByRole("button", { name: "Confirm & Save" }));
+    await screen.findByText("Document saved");
+    expect(mocks.finalize).toHaveBeenCalledTimes(1);
+    expect(mocks.finalize.mock.calls[0][0]).toMatchObject({ pendingScanId, documentNumber: "P-CORRECTED" });
+    await user.click(screen.getByRole("button", { name: "View document" }));
+    expect(mocks.push).toHaveBeenCalledWith("/documents/88888888-8888-4888-8888-888888888888");
+    await user.click(screen.getByRole("button", { name: "View customer" }));
+    expect(mocks.push).toHaveBeenCalledWith(`/customers/${customerId}`);
+  });
+
+  it("keeps the pending scan when extraction fails and supports manual review recovery", async () => {
+    const user = userEvent.setup();
+    mocks.extract.mockResolvedValueOnce({ ok: false, message: "We couldn't read all the details." });
+    renderFlow();
+    await chooseOwnerAndFile(user);
+    await screen.findByText("Detected document");
+    await user.click(await screen.findByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "We couldn't read all the details." });
+    await user.click(screen.getByRole("button", { name: "Enter details manually" }));
+    expect(await screen.findByText("Review document")).toBeTruthy();
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.upload).toHaveBeenCalledTimes(1);
+  });
 });
 
 afterEach(() => {
@@ -126,7 +187,7 @@ describe("Quick Scan Stage 2 client orchestration", () => {
     expect(screen.getByRole("heading", { name: "Passport" })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText("Document type ready")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Reading document…" })).toBeTruthy();
     expect(mocks.resolve).not.toHaveBeenCalled();
   });
 
@@ -149,7 +210,7 @@ describe("Quick Scan Stage 2 client orchestration", () => {
     await waitFor(() =>
       expect(mocks.resolve).toHaveBeenCalledWith({ pendingScanId, documentTypeId }),
     );
-    expect(await screen.findByText("Document type ready")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Reading document…" })).toBeTruthy();
     expect(mocks.create).toHaveBeenCalledTimes(1);
     expect(mocks.upload).toHaveBeenCalledTimes(1);
     expect(mocks.classify).toHaveBeenCalledTimes(1);
@@ -188,11 +249,11 @@ describe("Quick Scan Stage 2 client orchestration", () => {
     await user.type(screen.getByPlaceholderText("Search types"), "lice");
     await user.click(screen.getByRole("option", { name: "Driving Licence" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByRole("heading", { name: "Driving Licence" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Reading document…" })).toBeTruthy();
 
     releaseClassification();
     await waitFor(() => expect(mocks.resolve).toHaveBeenCalledWith({ pendingScanId, documentTypeId: drivingLicenceId }));
-    expect(screen.getByText("Document type ready")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Reading document…" })).toBeTruthy();
     expect(mocks.create).toHaveBeenCalledTimes(1);
     expect(mocks.upload).toHaveBeenCalledTimes(1);
   });

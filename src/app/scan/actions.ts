@@ -9,6 +9,8 @@ import { createDocumentUploadUrl } from "@/lib/r2/objects";
 import { inspectDocumentObject } from "@/lib/r2/objects";
 import { readDocumentObject } from "@/lib/r2/objects";
 import { GeminiDocumentExtractor } from "@/lib/document-ai/gemini";
+import { extractDocument } from "@/lib/document-ai/extract-document";
+import { documentExtractionSchema } from "@/lib/document-ai/schema";
 
 const quickCustomerSchema = z.object({
   fullName: z.string().trim().min(2).max(160),
@@ -116,4 +118,67 @@ export async function resolvePendingScanType(input: { pendingScanId: string; doc
   const { error } = await context.supabase.from("pending_scans").update({ state: "classified", detected_document_type_id: type.id, detected_canonical_code: type.canonical_code }).eq("id", scan.id).eq("organization_id", context.organization.id);
   if (error) return { ok: false as const, message: safeDatabaseError(error) };
   return { ok: true as const, data: { tenantDocumentTypeId: type.id, displayName: type.name, canonicalCode: type.canonical_code, resolutionSource: "manual" as const } };
+}
+
+const pendingScanIdSchema = z.string().uuid();
+const pendingScanReviewSchema = z.object({
+  pendingScanId: pendingScanIdSchema,
+  displayName: z.string().trim().min(2).max(160),
+  documentNumber: z.string().trim().max(120).optional().or(z.literal("")),
+  issueDate: z.string().date().optional().or(z.literal("")),
+  expiryDate: z.string().date().optional().or(z.literal("")),
+  extractionData: documentExtractionSchema,
+}).superRefine((value, ctx) => {
+  if (value.issueDate && value.expiryDate && value.issueDate >= value.expiryDate) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["expiryDate"], message: "Expiry date must be after issue date." });
+  }
+});
+
+export async function extractPendingScan(pendingScanId: string) {
+  if (!pendingScanIdSchema.safeParse(pendingScanId).success) return { ok: false as const, message: "The pending scan is unavailable." };
+  const context = await getWorkspaceContext();
+  if (!context) return { ok: false as const, message: "Your session has expired. Please sign in again." };
+  const { data: scan } = await context.supabase.from("pending_scans")
+    .select("id,state,object_key,mime_type,detected_document_type_id,extraction_data")
+    .eq("id", pendingScanId).eq("organization_id", context.organization.id).maybeSingle();
+  if (!scan || scan.state !== "classified" || !scan.object_key || !scan.mime_type || !scan.detected_document_type_id) {
+    return { ok: false as const, message: "Choose a document type before extracting details." };
+  }
+  const cached = documentExtractionSchema.safeParse(scan.extraction_data);
+  if (cached.success) return { ok: true as const, data: { extraction: cached.data, cached: true } };
+  try {
+    const result = await extractDocument({
+      bytes: await readDocumentObject(scan.object_key),
+      mimeType: scan.mime_type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp",
+      filename: "pending-scan",
+    });
+    await context.supabase.from("pending_scans").update({ extraction_data: result.extraction })
+      .eq("id", scan.id).eq("organization_id", context.organization.id).eq("state", "classified");
+    return { ok: true as const, data: { extraction: result.extraction, cached: false } };
+  } catch {
+    return { ok: false as const, message: "We couldn't read all the details." };
+  }
+}
+
+export async function finalizePendingScan(input: unknown) {
+  const parsed = pendingScanReviewSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, message: "Review the document details and correct any invalid dates." };
+  const context = await getWorkspaceContext();
+  if (!context) return { ok: false as const, message: "Your session has expired. Please sign in again." };
+  const { data, error } = await context.supabase.rpc("finalize_pending_scan", {
+    target_pending_scan_id: parsed.data.pendingScanId,
+    review_display_name: parsed.data.displayName,
+    review_document_number: parsed.data.documentNumber || null,
+    review_issue_date: parsed.data.issueDate || null,
+    review_expiry_date: parsed.data.expiryDate || null,
+    review_extraction_data: parsed.data.extractionData,
+  });
+  const result = Array.isArray(data) ? data[0] : data;
+  if (error || !result?.document_id || !result?.version_id) return { ok: false as const, message: safeDatabaseError(error) || "We couldn't save this document. Try again." };
+  const { data: scan } = await context.supabase.from("pending_scans").select("customer_id,company_id,detected_document_type_id")
+    .eq("id", parsed.data.pendingScanId).eq("organization_id", context.organization.id).maybeSingle();
+  revalidatePath("/dashboard"); revalidatePath("/documents"); revalidatePath("/renewals");
+  if (scan?.customer_id) revalidatePath(`/customers/${scan.customer_id}`);
+  if (scan?.company_id) revalidatePath(`/companies/${scan.company_id}`);
+  return { ok: true as const, data: { documentId: result.document_id as string, versionId: result.version_id as string, alreadyFinalized: Boolean(result.already_finalized), customerId: scan?.customer_id ?? null, companyId: scan?.company_id ?? null } };
 }

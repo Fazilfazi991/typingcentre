@@ -2,14 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { SearchableOwnerCombobox } from "@/components/searchable-owner-combobox";
 
-type Owner = { id: string; name: string; companyName?: string | null };
-
-export function DocumentOwnerPicker({ customers, companies }: { customers: Owner[]; companies: Owner[] }) {
+export function DocumentOwnerPicker() {
   const router = useRouter();
   const [kind, setKind] = useState<"customer" | "company">("customer");
   const [ownerId, setOwnerId] = useState("");
-  const options = kind === "customer" ? customers : companies;
 
   function continueToUpload() {
     if (!ownerId) return;
@@ -31,10 +29,7 @@ export function DocumentOwnerPicker({ customers, companies }: { customers: Owner
           </select>
         </label>
         <label>{kind === "customer" ? "Customer" : "Company"}
-          <select value={ownerId} onChange={(event) => setOwnerId(event.target.value)} required>
-            <option value="">Select {kind === "customer" ? "a customer" : "a company"}</option>
-            {options.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}{owner.companyName ? ` · ${owner.companyName}` : ""}</option>)}
-          </select>
+          <SearchableOwnerCombobox kind={kind} name="ownerId" value={ownerId} onChange={(value) => setOwnerId(value)} />
         </label>
       </fieldset>
       <div className="actions"><button className="primary-button" type="button" disabled={!ownerId} onClick={continueToUpload}>Continue to secure upload</button></div>

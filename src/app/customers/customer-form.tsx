@@ -2,11 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-
-type CompanyOption = {
-  id: string;
-  name: string;
-};
+import { SearchableOwnerCombobox } from "@/components/searchable-owner-combobox";
 
 type BranchOption = {
   id: string;
@@ -49,13 +45,11 @@ function SubmitButton({ label }: { label: string }) {
 export function CustomerForm({
   action,
   customer,
-  companies,
   branches,
   submitLabel,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   customer?: CustomerFormValues;
-  companies: CompanyOption[];
   branches: BranchOption[];
   submitLabel: string;
 }) {
@@ -131,21 +125,15 @@ export function CustomerForm({
         <legend>Company relationship</legend>
         <label>
           Company
-          <select
+          <SearchableOwnerCombobox
+            kind="company"
             name="companyId"
             value={companyId}
-            onChange={(event) => {
-              setCompanyId(event.target.value);
+            onChange={(value) => {
+              setCompanyId(value);
               setBranchId("");
             }}
-          >
-            <option value="">Independent</option>
-            {companies.map((company) => (
-              <option value={company.id} key={company.id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
+          />
         </label>
         <label>
           Branch

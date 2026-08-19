@@ -5,7 +5,7 @@ import "./quick-scan.css";
 
 import Link from "next/link";
 import React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   classifyPendingScan,
@@ -17,14 +17,14 @@ import {
   verifyPendingScanUpload,
 } from "./actions";
 import { uploadDocumentBinary } from "@/features/documents/smart-upload-form";
+import { SearchableOwnerCombobox } from "@/components/searchable-owner-combobox";
 import type { DocumentExtraction } from "@/lib/document-ai/types";
 
-type Owner = { id: string; full_name?: string; name?: string; phone?: string | null };
 type TypeOption = { id: string; name: string };
-type Props = { customers: Owner[]; companies: Owner[]; documentTypes: TypeOption[] };
+type Props = { documentTypes: TypeOption[] };
 const accepted = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
-export function QuickScanFlow({ customers: initialCustomers, companies, documentTypes }: Props) {
+export function QuickScanFlow({ documentTypes }: Props) {
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -44,8 +44,7 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
   >("owner");
   const [ownerKind, setOwnerKind] = useState<"customer" | "company">("customer");
   const [ownerId, setOwnerId] = useState("");
-  const [customers, setCustomers] = useState(initialCustomers);
-  const [query, setQuery] = useState("");
+  const [ownerLabel, setOwnerLabel] = useState("");
   const [typeId, setTypeId] = useState("");
   const [typeQuery, setTypeQuery] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -68,22 +67,9 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
   const [savedDocumentId, setSavedDocumentId] = useState("");
   const classificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const manualPickerRequested = useRef(false);
-  const selectedOwner = (ownerKind === "customer" ? customers : companies).find(
-    (item) => item.id === ownerId,
-  );
   const selectedType = documentTypes.find((item) => item.id === typeId);
   const filteredTypes = documentTypes.filter((item) =>
     item.name.toLowerCase().includes(typeQuery.toLowerCase()),
-  );
-  const ownerLabel = selectedOwner?.full_name || selectedOwner?.name || "";
-  const filteredOwners = useMemo(
-    () =>
-      (ownerKind === "customer" ? customers : companies).filter((item) =>
-        `${item.full_name || item.name || ""} ${item.phone || ""}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
-      ),
-    [ownerKind, customers, companies, query],
   );
 
   useEffect(
@@ -164,10 +150,9 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
       full_name: result.data.full_name,
       phone: result.data.phone,
     };
-    setCustomers((current) => [customer, ...current]);
     setOwnerKind("customer");
     setOwnerId(customer.id);
-    setQuery("");
+    setOwnerLabel(customer.full_name);
     setStep("capture");
   }
   async function process() {
@@ -256,6 +241,7 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
                 onClick={() => {
                   setOwnerKind("customer");
                   setOwnerId("");
+                  setOwnerLabel("");
                 }}
               >
                 Customer
@@ -265,29 +251,13 @@ export function QuickScanFlow({ customers: initialCustomers, companies, document
                 onClick={() => {
                   setOwnerKind("company");
                   setOwnerId("");
+                  setOwnerLabel("");
                 }}
               >
                 Company
               </button>
             </div>
-            <input
-              className="scan-search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={`Search ${ownerKind} name${ownerKind === "customer" ? " or phone" : ""}`}
-            />
-            <div className="scan-owner-list">
-              {filteredOwners.map((item) => (
-                <button
-                  key={item.id}
-                  className={ownerId === item.id ? "selected" : ""}
-                  onClick={() => setOwnerId(item.id)}
-                >
-                  <b>{item.full_name || item.name}</b>
-                  {item.phone && <small>{item.phone}</small>}
-                </button>
-              ))}
-            </div>
+            <SearchableOwnerCombobox kind={ownerKind} name="ownerId" value={ownerId} onChange={(value, option) => { setOwnerId(value); setOwnerLabel(option?.label ?? ""); }} />
             {ownerKind === "customer" && (
               <details className="scan-new-customer">
                 <summary>+ Add new customer</summary>

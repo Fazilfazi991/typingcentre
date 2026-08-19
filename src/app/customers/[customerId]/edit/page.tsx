@@ -23,7 +23,7 @@ export default async function EditCustomer({
 
   const queryParams = await searchParams;
   const error = typeof queryParams.error === "string" ? queryParams.error : "";
-  const [{ data: customer }, { data: companies }, { data: branches }] = await Promise.all([
+  const [{ data: customer }, { data: branches }] = await Promise.all([
     context.supabase
       .from("customers")
       .select("*")
@@ -31,12 +31,6 @@ export default async function EditCustomer({
       .eq("id", customerId)
       .is("archived_at", null)
       .maybeSingle(),
-    context.supabase
-      .from("companies")
-      .select("id,name")
-      .eq("organization_id", context.organization.id)
-      .is("archived_at", null)
-      .order("name"),
     context.supabase
       .from("branches")
       .select("id,name,company_id")
@@ -57,7 +51,6 @@ export default async function EditCustomer({
       <CustomerForm
         action={updateCustomerAction}
         customer={customer}
-        companies={companies ?? []}
         branches={branches ?? []}
         submitLabel="Save changes"
       />

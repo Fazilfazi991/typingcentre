@@ -17,20 +17,12 @@ export default async function NewCustomer({
 
   const params = await searchParams;
   const error = typeof params.error === "string" ? params.error : "";
-  const [{ data: companies }, { data: branches }] = await Promise.all([
-    context.supabase
-      .from("companies")
-      .select("id,name")
-      .eq("organization_id", context.organization.id)
-      .is("archived_at", null)
-      .order("name"),
-    context.supabase
+  const { data: branches } = await context.supabase
       .from("branches")
       .select("id,name,company_id")
       .eq("organization_id", context.organization.id)
       .is("archived_at", null)
-      .order("name"),
-  ]);
+      .order("name");
 
   return (
     <WorkspaceShell organizationName={context.organization.name}>
@@ -41,7 +33,6 @@ export default async function NewCustomer({
       </header>
       <CustomerForm
         action={createCustomerAction}
-        companies={companies ?? []}
         branches={branches ?? []}
         submitLabel="Create customer"
       />

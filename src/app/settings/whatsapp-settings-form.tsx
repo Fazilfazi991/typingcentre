@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useActionState } from "react";
+import { TimezoneCombobox } from "@/components/timezone-combobox";
 import {
   sendTestWhatsAppAction,
   updateWhatsAppSettingsAction,
@@ -30,7 +31,7 @@ export function WhatsAppSettingsForm({
       <label className="settings-toggle"><span><b>Enable WhatsApp expiry summary</b><small>One summary per workspace local day when documents need attention.</small></span><input type="checkbox" name="enabled" defaultChecked={settings.enabled} disabled={pending}/></label>
       <label><span>Recipient WhatsApp number</span><input name="phone" inputMode="tel" placeholder="+971501234567" defaultValue={settings.phone} disabled={pending}/><small>Use E.164 international format.</small></label>
       <label><span>Delivery time</span><input name="time" type="time" defaultValue={settings.time} disabled={pending}/></label>
-      <label><span>Timezone</span><input value={timezone} readOnly/><small>This uses the workspace timezone to avoid conflicting schedules.</small></label>
+      <label><span>Timezone</span><TimezoneCombobox value={timezone} disabled={pending}/><small>Used for scheduled WhatsApp notifications and workspace-local dates.</small></label>
       <button className="primary-button whatsapp-save-button" type="submit" disabled={pending} aria-disabled={pending}>{pending ? "Saving…" : "Save WhatsApp settings"}</button>
     </form>
     <form action={testAction} style={{ padding: "0 24px 24px" }}>

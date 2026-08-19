@@ -39,6 +39,16 @@ describe("tenant WhatsApp expiry dispatcher", () => {
     expect(tenantLocalSchedule(new Date("2026-08-12T20:05:00Z"), "Asia/Kolkata")).toEqual({ date: "2026-08-13", time: "01:35" });
   });
 
+  it("uses the saved timezone for delivery eligibility and the local-day claim key", async () => {
+    const kolkataTenant = { ...tenant, timezone: "Asia/Kolkata", whatsapp_notification_time: "09:00" };
+    const deps = dependencies();
+    await expect(dispatchWhatsAppExpiryForTenant(kolkataTenant, new Date("2026-08-13T03:30:00.000Z"), deps)).resolves.toMatchObject({
+      action: "accepted",
+      localDate: "2026-08-13",
+    });
+    expect(deps.claim).toHaveBeenCalledWith(kolkataTenant, "2026-08-13", expect.anything());
+  });
+
   it("accepts the bounded retry window after the configured time", () => {
     expect(isWithinWhatsAppDeliveryWindow("09:00", "09:00")).toBe(true);
     expect(isWithinWhatsAppDeliveryWindow("09:14", "09:00")).toBe(true);

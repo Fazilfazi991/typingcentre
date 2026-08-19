@@ -19,6 +19,14 @@ const settingsSchema = z.object({
   enabled: z.boolean(),
   phone: z.string().trim().max(32),
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  timezone: z.string().trim().min(1).max(100).refine((value) => {
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: value });
+      return true;
+    } catch {
+      return false;
+    }
+  }),
 });
 
 export async function updateWhatsAppSettingsAction(
@@ -32,8 +40,9 @@ export async function updateWhatsAppSettingsAction(
     enabled: formData.get("enabled") === "on",
     phone: String(formData.get("phone") ?? ""),
     time: String(formData.get("time") ?? ""),
+    timezone: String(formData.get("timezone") ?? ""),
   });
-  if (!parsed.success) return { error: "Enter a valid delivery time and recipient number." };
+  if (!parsed.success) return { error: "Enter a valid delivery time, recipient number, and timezone." };
   const normalized = parsed.data.phone ? normalizeWhatsAppRecipient(parsed.data.phone) : null;
   if ((parsed.data.phone && normalized !== parsed.data.phone) || (parsed.data.enabled && !normalized))
     return { error: "Enter a valid E.164 recipient, for example +971523743418." };
@@ -47,9 +56,10 @@ export async function updateWhatsAppSettingsAction(
       whatsapp_notifications_enabled: parsed.data.enabled,
       whatsapp_recipient_phone: normalized,
       whatsapp_notification_time: parsed.data.time,
+      timezone: parsed.data.timezone,
     })
     .eq("id", context.organization.id)
-    .select("id, whatsapp_notifications_enabled, whatsapp_recipient_phone, whatsapp_notification_time");
+    .select("id, whatsapp_notifications_enabled, whatsapp_recipient_phone, whatsapp_notification_time, timezone");
 
   if (error || !data?.length) {
     process.stderr.write(`${JSON.stringify({

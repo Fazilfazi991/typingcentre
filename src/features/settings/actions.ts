@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import {
+  buildDocumentExpirySummaryComponents,
+  expirySummaryTemplateConfig,
+} from "@/lib/whatsapp/expiry-template";
 import { normalizeWhatsAppRecipient } from "@/lib/whatsapp/sender";
+import { sendWhatsAppTemplateMessage } from "@/lib/whatsapp/sender";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 
 export type WhatsAppSettingsActionState = {
@@ -63,5 +68,69 @@ export async function updateWhatsAppSettingsAction(
   }
 
   revalidatePath("/settings");
+  return { success: true };
+}
+
+export async function sendTestWhatsAppAction(
+  _: WhatsAppSettingsActionState,
+  _formData: FormData,
+): Promise<WhatsAppSettingsActionState> {
+  const context = await getWorkspaceContext();
+  if (!context || context.membership.role !== "owner")
+    return { error: "Only the workspace owner can send a test WhatsApp." };
+
+  // The recipient and organization are loaded from the authenticated workspace,
+  // rather than accepting either value from the browser.
+  const { data: organization, error } = await context.supabase
+    .from("organizations")
+    .select("name, whatsapp_recipient_phone")
+    .eq("id", context.organization.id)
+    .single();
+  const recipient = organization?.whatsapp_recipient_phone
+    ? normalizeWhatsAppRecipient(organization.whatsapp_recipient_phone)
+    : null;
+  if (error || !recipient || recipient !== organization?.whatsapp_recipient_phone)
+    return { error: "Save a valid E.164 WhatsApp recipient before sending a test." };
+
+  const template = expirySummaryTemplateConfig();
+  const result = await sendWhatsAppTemplateMessage({
+    to: recipient,
+    tenantId: context.organization.id,
+    templateName: template.name,
+    languageCode: template.language,
+    // The approved digest template is used because arbitrary free-form messages
+    // are not deliverable outside a WhatsApp customer-service session. Zero
+    // counts and the TEST suffix make clear this is not a live expiry digest.
+    components: buildDocumentExpirySummaryComponents(`${organization.name} (TEST)`, {
+      today: 0,
+      next7Days: 0,
+      next30Days: 0,
+      total: 0,
+    }),
+  });
+  if (!result.success) {
+    process.stderr.write(`${JSON.stringify({
+      event: "whatsapp_settings_test_failed",
+      tenant_id: context.organization.id,
+      error_type: result.error.type,
+      error_code: result.error.code,
+      response_status: result.responseStatus,
+    })}\n`);
+    return {
+      error: result.error.type === "configuration"
+        ? "WhatsApp is not configured for sending test messages."
+        : result.error.type === "validation"
+          ? "The saved WhatsApp recipient is not valid."
+          : "Test WhatsApp could not be sent. Please try again.",
+    };
+  }
+
+  process.stdout.write(`${JSON.stringify({
+    event: "whatsapp_settings_test_accepted",
+    tenant_id: context.organization.id,
+    message_id: result.messageId,
+    response_status: result.responseStatus,
+  })}\n`);
+  // Intentionally do not write organizations.whatsapp_last_* or the digest ledger.
   return { success: true };
 }

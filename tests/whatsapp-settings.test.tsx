@@ -2,18 +2,23 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getWorkspaceContext, revalidatePath, update } = vi.hoisted(() => ({
+const { getWorkspaceContext, revalidatePath, update, sendWhatsAppTemplateMessage } = vi.hoisted(() => ({
   getWorkspaceContext: vi.fn(),
   revalidatePath: vi.fn(),
   update: vi.fn(),
+  sendWhatsAppTemplateMessage: vi.fn(),
 }));
 
 vi.mock("@/lib/workspace/context", () => ({ getWorkspaceContext }));
 vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("@/lib/whatsapp/sender", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/whatsapp/sender")>()),
+  sendWhatsAppTemplateMessage,
+}));
 vi.mock("@/components/workspace-shell", () => ({ WorkspaceShell: ({ children }: { children: React.ReactNode }) => <main>{children}</main> }));
 
 import SettingsPage from "@/app/settings/page";
-import { updateWhatsAppSettingsAction } from "@/features/settings/actions";
+import { sendTestWhatsAppAction, updateWhatsAppSettingsAction } from "@/features/settings/actions";
 
 function actionContext(role = "owner", result: { data: unknown[] | null; error: unknown } = { data: [{ id: "tenant-a" }], error: null }) {
   const select = vi.fn().mockResolvedValue(result);
@@ -109,5 +114,25 @@ describe("tenant WhatsApp settings", () => {
     await expect(updateWhatsAppSettingsAction({}, form)).resolves.toEqual({
       error: "WhatsApp settings could not be saved. Please try again.",
     });
+  });
+
+  it("sends the saved tenant recipient without changing digest history", async () => {
+    const single = vi.fn().mockResolvedValue({ data: { name: "Tenant A", whatsapp_recipient_phone: "+971523743418" }, error: null });
+    const eq = vi.fn().mockReturnValue({ single });
+    getWorkspaceContext.mockResolvedValue({
+      membership: { role: "owner" },
+      organization: { id: "tenant-a", name: "Tenant A", timezone: "Asia/Dubai" },
+      user: { id: "user-a" },
+      supabase: { from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ eq }) }) },
+    });
+    sendWhatsAppTemplateMessage.mockResolvedValue({ success: true, responseStatus: 200, messageId: "wamid.test" });
+
+    await expect(sendTestWhatsAppAction({}, new FormData())).resolves.toEqual({ success: true });
+    expect(sendWhatsAppTemplateMessage).toHaveBeenCalledWith(expect.objectContaining({
+      to: "+971523743418",
+      tenantId: "tenant-a",
+      components: [{ type: "body", parameters: expect.arrayContaining([{ type: "text", text: "Tenant A (TEST)" }]) }],
+    }));
+    expect(update).not.toHaveBeenCalled();
   });
 });

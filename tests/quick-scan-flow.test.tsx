@@ -119,10 +119,12 @@ describe("Quick Scan Stage 3 client orchestration", () => {
     expect(mocks.extract).toHaveBeenCalledWith(pendingScanId);
     const number = screen.getByLabelText("Document number");
     await user.clear(number); await user.type(number, "P-CORRECTED");
+    const expiry = screen.getByLabelText("Expiry date");
+    await user.clear(expiry); await user.type(expiry, "2026-08-22");
     await user.click(screen.getByRole("button", { name: "Confirm & Save" }));
     await screen.findByText("Document saved");
     expect(mocks.finalize).toHaveBeenCalledTimes(1);
-    expect(mocks.finalize.mock.calls[0][0]).toMatchObject({ pendingScanId, documentNumber: "P-CORRECTED" });
+    expect(mocks.finalize.mock.calls[0][0]).toMatchObject({ pendingScanId, documentNumber: "P-CORRECTED", expiryDate: "2026-08-22" });
     await user.click(screen.getByRole("button", { name: "View document" }));
     expect(mocks.push).toHaveBeenCalledWith("/documents/88888888-8888-4888-8888-888888888888");
     await user.click(screen.getByRole("button", { name: "View customer" }));

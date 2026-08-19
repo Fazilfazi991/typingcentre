@@ -45,10 +45,7 @@ import { QuickScanFlow } from "@/app/scan/quick-scan-flow";
 
 function renderFlow() {
   return render(
-    <QuickScanFlow
-      customers={[{ id: customerId, full_name: "Demo Customer", phone: "0500000000" }]}
-      companies={[]}
-      documentTypes={[
+    <QuickScanFlow documentTypes={[
         { id: documentTypeId, name: "Passport" },
         { id: drivingLicenceId, name: "Driving Licence" },
         { id: tradeLicenceId, name: "Trade Licence" },
@@ -60,7 +57,9 @@ function renderFlow() {
 }
 
 async function chooseOwnerAndFile(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: /Demo Customer/ }));
+  await user.click(screen.getByRole("button", { name: "Select a customer" }));
+  await user.type(screen.getByRole("textbox", { name: "Search customer" }), "Demo");
+  await user.click(await screen.findByRole("option", { name: /Demo Customer/ }));
   await user.click(screen.getByRole("button", { name: "Continue to camera" }));
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   fireEvent.change(input, {
@@ -70,6 +69,7 @@ async function chooseOwnerAndFile(user: ReturnType<typeof userEvent.setup>) {
 }
 
 beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: async () => ({ results: [{ id: customerId, label: "Demo Customer", description: "0500000000" }] }) }));
   mocks.create.mockReset().mockResolvedValue({
     ok: true,
     data: { pendingScanId, uploadUrl: "https://upload.example/test" },
@@ -287,7 +287,9 @@ describe("Quick Scan Stage 2 client orchestration", () => {
     const user = userEvent.setup();
     mocks.classify.mockImplementationOnce(() => new Promise(() => {}));
     renderFlow();
-    await user.click(screen.getByRole("button", { name: /Demo Customer/ }));
+    await user.click(screen.getByRole("button", { name: "Select a customer" }));
+    await user.type(screen.getByRole("textbox", { name: "Search customer" }), "Demo");
+    await user.click(await screen.findByRole("option", { name: /Demo Customer/ }));
     await user.click(screen.getByRole("button", { name: "Continue to camera" }));
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(input, {

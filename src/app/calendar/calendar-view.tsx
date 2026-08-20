@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 export type CalendarEvent = {
@@ -16,6 +16,7 @@ export type CalendarEvent = {
 };
 
 function monthStart(value: string) { return `${value.slice(0, 7)}-01`; }
+function isMonth(value: string | null): value is string { return Boolean(value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value)); }
 function moveMonth(value: string, amount: number) {
   const date = new Date(`${monthStart(value)}T00:00:00Z`);
   date.setUTCMonth(date.getUTCMonth() + amount);
@@ -36,8 +37,13 @@ function daysInMonth(value: string) {
 
 export function CalendarView({ month, today, events }: { month: string; today: string; events: CalendarEvent[] }) {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState(() => today.startsWith(month) ? today : `${month}-01`);
-  useEffect(() => setSelectedDate(today.startsWith(month) ? today : `${month}-01`), [month, today]);
+  const searchParams = useSearchParams();
+  // The URL is the authoritative month state. The server prop is only the initial
+  // fallback while an App Router navigation is resolving new event data.
+  const urlMonth = searchParams.get("month");
+  const activeMonth = isMonth(urlMonth) ? urlMonth : month;
+  const [selectedDate, setSelectedDate] = useState(() => today.startsWith(activeMonth) ? today : `${activeMonth}-01`);
+  useEffect(() => setSelectedDate(today.startsWith(activeMonth) ? today : `${activeMonth}-01`), [activeMonth, today]);
   const byDate = useMemo(() => events.reduce((all, event) => {
     const entries = all.get(event.date) ?? [];
     entries.push(event);
@@ -51,11 +57,11 @@ export function CalendarView({ month, today, events }: { month: string; today: s
   return <div className="calendar-layout">
     <section className="panel calendar-panel" aria-label="Calendar">
       <div className="calendar-toolbar">
-        <div><p className="eyebrow">Schedule</p><h1>{monthLabel(month)}</h1></div>
-        <div className="calendar-controls"><button type="button" onClick={() => navigate(moveMonth(month, -1))} aria-label="Previous month">‹</button><button type="button" onClick={goToday}>Today</button><button type="button" onClick={() => navigate(moveMonth(month, 1))} aria-label="Next month">›</button></div>
+        <div><p className="eyebrow">Schedule</p><h1>{monthLabel(activeMonth)}</h1></div>
+        <div className="calendar-controls"><button type="button" onClick={() => navigate(moveMonth(activeMonth, -1))} aria-label="Previous month">‹</button><button type="button" onClick={goToday}>Today</button><button type="button" onClick={() => navigate(moveMonth(activeMonth, 1))} aria-label="Next month">›</button></div>
       </div>
       <div className="calendar-weekdays" aria-hidden="true">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span key={day}>{day}</span>)}</div>
-      <div className="calendar-grid">{daysInMonth(month).map((date, index) => date ? <div key={date} className={`calendar-day ${date === selectedDate ? "is-selected" : ""} ${date === today ? "is-today" : ""}`}>
+      <div className="calendar-grid">{daysInMonth(activeMonth).map((date, index) => date ? <div key={date} className={`calendar-day ${date === selectedDate ? "is-selected" : ""} ${date === today ? "is-today" : ""}`}>
         <button type="button" className="calendar-date-button" onClick={() => setSelectedDate(date)} aria-pressed={date === selectedDate} aria-label={`Show events for ${dateLabel(date)}`}><time dateTime={date}>{Number(date.slice(-2))}</time></button>
         <span className="calendar-event-summary">{(byDate.get(date) ?? []).slice(0, 2).map((event) => <Link href={event.href} className={`calendar-dot ${event.category} ${event.status}`} key={event.id}>{event.title}</Link>)}</span>
         {(byDate.get(date)?.length ?? 0) > 2 && <button type="button" className="calendar-more-button" onClick={() => setSelectedDate(date)}>+{byDate.get(date)!.length - 2} more</button>}

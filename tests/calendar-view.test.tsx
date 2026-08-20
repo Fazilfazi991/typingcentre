@@ -4,11 +4,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+let query = new URLSearchParams();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), useSearchParams: () => query }));
 
 import { CalendarView, type CalendarEvent } from "@/app/calendar/calendar-view";
 
-afterEach(() => { cleanup(); push.mockClear(); });
+afterEach(() => { cleanup(); push.mockClear(); query = new URLSearchParams(); });
 
 const events: CalendarEvent[] = [
   { id: "document-a", date: "2026-08-20", title: "Ahmed Hassan — Emirates ID expiry", detail: "active", href: "/documents/doc-a", category: "document", status: "today" },
@@ -25,14 +26,36 @@ describe("CalendarView", () => {
     expect(followUpLinks.some((link) => link.getAttribute("href") === "/follow-ups/follow-a/edit")).toBe(true);
   });
 
-  it("navigates months and returns to today", () => {
-    render(<CalendarView month="2026-08" today="2026-08-19" events={[]}/>);
+  it("uses the URL month for previous, next, and today navigation", () => {
+    const { rerender } = render(<CalendarView month="2026-08" today="2026-08-19" events={[]}/>);
     fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next month" }));
-    fireEvent.click(screen.getByRole("button", { name: "Today" }));
     expect(push).toHaveBeenNthCalledWith(1, "/calendar?month=2026-07");
-    expect(push).toHaveBeenNthCalledWith(2, "/calendar?month=2026-09");
-    expect(push).toHaveBeenNthCalledWith(3, "/calendar?month=2026-08");
+
+    query = new URLSearchParams("month=2026-07");
+    rerender(<CalendarView month="2026-08" today="2026-08-19" events={[]}/>);
+    expect(screen.getByRole("heading", { name: "July 2026" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Show events for Tuesday, 7 July 2026" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next month" }));
+    expect(push).toHaveBeenLastCalledWith("/calendar?month=2026-08");
+
+    query = new URLSearchParams("month=2026-08");
+    rerender(<CalendarView month="2026-08" today="2026-08-19" events={[]}/>);
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    expect(push).toHaveBeenLastCalledWith("/calendar?month=2026-08");
+  });
+
+  it("handles year boundaries using the URL month", () => {
+    query = new URLSearchParams("month=2026-12");
+    const { rerender } = render(<CalendarView month="2026-12" today="2026-08-19" events={[]}/>);
+    expect(screen.getByRole("heading", { name: "December 2026" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next month" }));
+    expect(push).toHaveBeenLastCalledWith("/calendar?month=2027-01");
+
+    query = new URLSearchParams("month=2027-01");
+    rerender(<CalendarView month="2027-01" today="2026-08-19" events={[]}/>);
+    expect(screen.getByRole("heading", { name: "January 2027" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
+    expect(push).toHaveBeenLastCalledWith("/calendar?month=2026-12");
   });
 
   it("shows the required empty state for a selected day without events", () => {

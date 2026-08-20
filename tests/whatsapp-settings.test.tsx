@@ -19,6 +19,7 @@ vi.mock("@/components/workspace-shell", () => ({ WorkspaceShell: ({ children }: 
 
 import SettingsPage from "@/app/settings/page";
 import { sendTestWhatsAppAction, updateWhatsAppSettingsAction } from "@/features/settings/actions";
+import { getWhatsAppSettingsStatus } from "@/lib/whatsapp/settings-status";
 
 function actionContext(role = "owner", result: { data: unknown[] | null; error: unknown } = { data: [{ id: "tenant-a" }], error: null }) {
   const select = vi.fn().mockResolvedValue(result);
@@ -71,22 +72,26 @@ describe("tenant WhatsApp settings", () => {
     expect(html).toContain("Asia/Dubai");
     expect(html).toContain("Never");
     expect(html).toContain("No deliveries yet");
+    expect(html).toContain("Automatic WhatsApp expiry summaries are currently disabled.");
+    expect(html).toContain("Sends an immediate test message without affecting today’s scheduled summary.");
   });
 
-  it("persists only the authenticated tenant settings with exact phone and local time", async () => {
+  it("persists only the authenticated tenant settings with exact phone, local time, and timezone", async () => {
     const { eq, select } = actionContext();
     const form = new FormData();
     form.set("enabled", "on");
     form.set("phone", "+971501234567");
     form.set("time", "10:30");
+    form.set("timezone", "Asia/Kolkata");
     await expect(updateWhatsAppSettingsAction({}, form)).resolves.toEqual({ success: true });
     expect(update).toHaveBeenCalledWith({
       whatsapp_notifications_enabled: true,
       whatsapp_recipient_phone: "+971501234567",
       whatsapp_notification_time: "10:30",
+      timezone: "Asia/Kolkata",
     });
     expect(eq).toHaveBeenCalledWith("id", "tenant-a");
-    expect(select).toHaveBeenCalledWith("id, whatsapp_notifications_enabled, whatsapp_recipient_phone, whatsapp_notification_time");
+    expect(select).toHaveBeenCalledWith("id, whatsapp_notifications_enabled, whatsapp_recipient_phone, whatsapp_notification_time, timezone");
   });
 
   it.each(["0501234567", "971501234567", "+971 50 123 4567"])("rejects a non-exact E.164 recipient: %s", async (phone) => {
@@ -95,6 +100,7 @@ describe("tenant WhatsApp settings", () => {
     form.set("enabled", "on");
     form.set("phone", phone);
     form.set("time", "09:00");
+    form.set("timezone", "Asia/Dubai");
     await expect(updateWhatsAppSettingsAction({}, form)).resolves.toEqual({ error: "Enter a valid E.164 recipient, for example +971523743418." });
     expect(update).not.toHaveBeenCalled();
   });
@@ -111,9 +117,23 @@ describe("tenant WhatsApp settings", () => {
     form.set("enabled", "on");
     form.set("phone", "+971523743418");
     form.set("time", "10:30");
+    form.set("timezone", "Asia/Dubai");
     await expect(updateWhatsAppSettingsAction({}, form)).resolves.toEqual({
       error: "WhatsApp settings could not be saved. Please try again.",
     });
+  });
+
+  it("rejects an invalid timezone before updating the authenticated workspace", async () => {
+    actionContext();
+    const form = new FormData();
+    form.set("enabled", "on");
+    form.set("phone", "+971501234567");
+    form.set("time", "10:30");
+    form.set("timezone", "not/a-timezone");
+    await expect(updateWhatsAppSettingsAction({}, form)).resolves.toEqual({
+      error: "Enter a valid delivery time, recipient number, and timezone.",
+    });
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("sends the saved tenant recipient without changing digest history", async () => {
@@ -134,5 +154,31 @@ describe("tenant WhatsApp settings", () => {
       components: [{ type: "body", parameters: expect.arrayContaining([{ type: "text", text: "Tenant A (TEST)" }]) }],
     }));
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it("explains that a delivery-time change applies tomorrow after today's digest", () => {
+    const status = getWhatsAppSettingsStatus({
+      enabled: true,
+      deliveryTime: "23:30",
+      lastSentAt: "2026-08-19T18:02:00.000Z",
+      timezone: "Asia/Dubai",
+      now: new Date("2026-08-19T19:00:00.000Z"),
+    });
+    expect(status.sentToday).toBe(true);
+    expect(status.message).toContain("sent at 10:02 PM");
+    expect(status.message).toContain("tomorrow");
+    expect(status.nextScheduledDelivery).toBe("Next scheduled delivery: 20 Aug 2026, 11:30 PM");
+  });
+
+  it("shows today's upcoming automatic summary when no digest has been sent", () => {
+    const status = getWhatsAppSettingsStatus({
+      enabled: true,
+      deliveryTime: "10:05",
+      lastSentAt: null,
+      timezone: "Asia/Dubai",
+      now: new Date("2026-08-19T05:00:00.000Z"),
+    });
+    expect(status.message).toBe("Next automatic summary is scheduled for 10:05 AM.");
+    expect(status.nextScheduledDelivery).toBe("Next scheduled delivery: 19 Aug 2026, 10:05 AM");
   });
 });

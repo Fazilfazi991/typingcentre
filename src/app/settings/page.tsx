@@ -1,3 +1,5 @@
+import React from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { updateWhatsAppSettingsAction } from "@/features/settings/actions";
@@ -10,7 +12,7 @@ const statusLabel = (value: string | null) => value ? value[0].toUpperCase() + v
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const context = await getWorkspaceContext();
   if (!context) redirect("/account-inactive" as never);
-  const [{ data: settings }, { data: latest }] = await Promise.all([
+  const [{ data: settings }, { data: latest }, { data: imports }] = await Promise.all([
     context.supabase
       .from("organizations")
       .select("whatsapp_notifications_enabled,whatsapp_recipient_phone,whatsapp_notification_time,whatsapp_last_sent_at,whatsapp_last_status")
@@ -23,6 +25,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    context.supabase
+      .from("import_jobs")
+      .select("id,file_name,source_format,status,total_rows,customers_created,companies_created,documents_created,records_updated,records_skipped,records_failed,created_at,completed_at")
+      .eq("organization_id", context.organization.id)
+      .order("created_at", { ascending: false })
+      .limit(25),
   ]);
   const params = await searchParams;
   const canManage = context.membership.role === "owner";
@@ -48,6 +56,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <div><small>Latest delivery status</small><b className={`delivery-${settings?.whatsapp_last_status ?? "none"}`}>{statusLabel(settings?.whatsapp_last_status ?? null)}</b></div>
         {failure && <div className="delivery-failure"><small>Sanitized failure reason</small><p>{failure}</p></div>}
       </div>
+    </section>
+    <section className="panel" id="data-import">
+      <div className="panel-heading"><div><h2>Data Import</h2><p>Bring in existing customer and document records without leaving your workspace.</p></div><Link className="primary-button" href="/imports/new">Import Existing Data</Link></div>
+      {imports?.length ? <div className="table-wrap"><table><thead><tr><th>File</th><th>Date</th><th>Created</th><th>Updated</th><th>Skipped</th><th>Status</th></tr></thead><tbody>{imports.map((item: any) => <tr key={item.id}><td><Link href={`/settings/data-import/${item.id}`}>{item.file_name}</Link><small>{item.source_format.toUpperCase()} · {item.total_rows} detected</small></td><td>{new Intl.DateTimeFormat("en-AE", { dateStyle: "medium" }).format(new Date(item.created_at))}</td><td>{item.customers_created + item.companies_created + item.documents_created}</td><td>{item.records_updated}</td><td>{item.records_skipped}</td><td><Link href={`/settings/data-import/${item.id}`}>View details</Link></td></tr>)}</tbody></table></div> : <p className="settings-note">No imports yet. Your completed imports will appear here.</p>}
     </section>
   </WorkspaceShell>;
 }

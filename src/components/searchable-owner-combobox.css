@@ -1,0 +1,11 @@
+.owner-combobox { position: relative; min-width: 0; }
+.owner-combobox-trigger { display: flex; width: 100%; min-height: 42px; align-items: center; justify-content: space-between; gap: 10px; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; background: #fff; color: #102a5c; text-align: left; cursor: pointer; }
+.owner-combobox-trigger > span { flex: 0 0 auto; }
+.owner-combobox-menu { position: absolute; z-index: 30; top: calc(100% + 5px); right: 0; left: 0; max-height: min(360px, 60vh); overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #fff; box-shadow: 0 12px 30px rgba(16,42,92,.18); }
+.owner-combobox-search { position: sticky; top: 0; width: 100%; min-height: 40px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; background: #fff; color: #102a5c; }
+.owner-combobox-option { display: grid; width: 100%; gap: 2px; border: 0; border-radius: 7px; padding: 10px; background: transparent; color: #102a5c; text-align: left; cursor: pointer; }
+.owner-combobox-option:hover, .owner-combobox-option.active { background: #eef5ff; }
+.owner-combobox-option b, .owner-combobox-option small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.owner-combobox-option small, .owner-combobox-empty { color: #667085; }
+.owner-combobox-empty { margin: 8px 10px; font-size: .875rem; }
+@media (max-width: 760px) { .owner-combobox-menu { position: fixed; top: auto; right: 12px; bottom: 12px; left: 12px; max-height: min(70vh, 430px); } .owner-combobox-option { min-height: 46px; } }

@@ -6,7 +6,7 @@ import { NoteItLogo } from "@/components/note-it-logo";
 
 const nav = [
   ["Dashboard", "/dashboard", "⊞"], ["Customers", "/customers", "♙"], ["Companies", "/companies", "▥"],
-  ["Documents", "/documents", "▤"], ["Renewals", "/renewals?range=30d", "↻"], ["Calendar", "/calendar", "▦"], ["Follow-ups", "/follow-ups", "☷"],
+  ["Documents", "/documents", "▤"], ["Import Data", "/imports/new", "⇧"], ["Renewals", "/renewals?range=30d", "↻"], ["Calendar", "/calendar", "▦"], ["Follow-ups", "/follow-ups", "☷"],
   ["Reports", "/reports", "▥"], ["Settings", "/settings", "⚙"],
 ];
 
@@ -22,7 +22,7 @@ export async function WorkspaceShell({ organizationName, activePath, children }:
     <aside className="sidebar" aria-label="Workspace navigation">
       <div className="sidebar-top">
         <Link className="brand" href="/dashboard" aria-label="Note It dashboard"><NoteItLogo className="brand-logo" /></Link>
-        <nav>{nav.map(([label, href, icon]) => { const active = Boolean(activePath && href.startsWith(activePath)); return href ? <Link href={href} key={label} title={label} className={active ? "nav-active" : ""} aria-current={active ? "page" : undefined}><i aria-hidden>{icon}</i><span>{label}</span></Link> : <span key={label} className="nav-disabled" title={`${label} is coming soon`}><i aria-hidden>{icon}</i><span>{label}</span></span>; })}</nav>
+        <nav>{nav.filter(([label]) => label !== "Import Data" || ["owner", "admin"].includes(workspace?.membership.role ?? "")).map(([label, href, icon]) => { const active = Boolean(activePath && href.startsWith(activePath)); return href ? <Link href={href} key={label} title={label} className={active ? "nav-active" : ""} aria-current={active ? "page" : undefined}><i aria-hidden>{icon}</i><span>{label}</span></Link> : <span key={label} className="nav-disabled" title={`${label} is coming soon`}><i aria-hidden>{icon}</i><span>{label}</span></span>; })}</nav>
       </div>
       <div className="organization-card"><span className="org-avatar">{initials || "RT"}</span><span><b>{organizationName}</b><small>{workspace?.organization.location || "Workspace"} · {plan}</small></span><span aria-hidden>›</span></div>
       <form action={logoutAction}><button className="sidebar-logout" type="submit">Log out</button></form>

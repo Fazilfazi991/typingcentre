@@ -2,12 +2,14 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getWorkspaceContext, revalidatePath, update, sendWhatsAppTemplateMessage } = vi.hoisted(() => ({
-  getWorkspaceContext: vi.fn(),
-  revalidatePath: vi.fn(),
-  update: vi.fn(),
-  sendWhatsAppTemplateMessage: vi.fn(),
-}));
+const { getWorkspaceContext, revalidatePath, update, sendWhatsAppTemplateMessage } = vi.hoisted(
+  () => ({
+    getWorkspaceContext: vi.fn(),
+    revalidatePath: vi.fn(),
+    update: vi.fn(),
+    sendWhatsAppTemplateMessage: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/workspace/context", () => ({ getWorkspaceContext }));
 vi.mock("next/cache", () => ({ revalidatePath }));
@@ -15,13 +17,18 @@ vi.mock("@/lib/whatsapp/sender", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/whatsapp/sender")>()),
   sendWhatsAppTemplateMessage,
 }));
-vi.mock("@/components/workspace-shell", () => ({ WorkspaceShell: ({ children }: { children: React.ReactNode }) => <main>{children}</main> }));
+vi.mock("@/components/workspace-shell", () => ({
+  WorkspaceShell: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
+}));
 
 import SettingsPage from "@/app/settings/page";
 import { sendTestWhatsAppAction, updateWhatsAppSettingsAction } from "@/features/settings/actions";
 import { getWhatsAppSettingsStatus } from "@/lib/whatsapp/settings-status";
 
-function actionContext(role = "owner", result: { data: unknown[] | null; error: unknown } = { data: [{ id: "tenant-a" }], error: null }) {
+function actionContext(
+  role = "owner",
+  result: { data: unknown[] | null; error: unknown } = { data: [{ id: "tenant-a" }], error: null },
+) {
   const select = vi.fn().mockResolvedValue(result);
   const eq = vi.fn().mockReturnValue({ select });
   update.mockReturnValue({ eq });
@@ -38,13 +45,16 @@ function settingsContext() {
   const organizationQuery: any = {
     select: () => organizationQuery,
     eq: () => organizationQuery,
-    single: () => Promise.resolve({ data: {
-      whatsapp_notifications_enabled: false,
-      whatsapp_recipient_phone: null,
-      whatsapp_notification_time: "09:00:00",
-      whatsapp_last_sent_at: null,
-      whatsapp_last_status: null,
-    } }),
+    single: () =>
+      Promise.resolve({
+        data: {
+          whatsapp_notifications_enabled: false,
+          whatsapp_recipient_phone: null,
+          whatsapp_notification_time: "09:00:00",
+          whatsapp_last_sent_at: null,
+          whatsapp_last_status: null,
+        },
+      }),
   };
   const historyQuery: any = {
     select: () => historyQuery,
@@ -56,7 +66,9 @@ function settingsContext() {
   getWorkspaceContext.mockResolvedValue({
     membership: { role: "owner" },
     organization: { id: "tenant-a", name: "Tenant A", timezone: "Asia/Dubai" },
-    supabase: { from: (table: string) => table === "organizations" ? organizationQuery : historyQuery },
+    supabase: {
+      from: (table: string) => (table === "organizations" ? organizationQuery : historyQuery),
+    },
   });
 }
 
@@ -73,7 +85,11 @@ describe("tenant WhatsApp settings", () => {
     expect(html).toContain("Never");
     expect(html).toContain("No deliveries yet");
     expect(html).toContain("Automatic WhatsApp expiry summaries are currently disabled.");
-    expect(html).toContain("Sends an immediate test message without affecting today’s scheduled summary.");
+    expect(html).toContain(
+      "Sends an immediate test message without affecting today’s scheduled summary.",
+    );
+    expect(html).toContain("whatsapp-test-action-row");
+    expect(html).toContain("whatsapp-test-result");
   });
 
   it("persists only the authenticated tenant settings with exact phone, local time, and timezone", async () => {
@@ -91,23 +107,32 @@ describe("tenant WhatsApp settings", () => {
       timezone: "Asia/Kolkata",
     });
     expect(eq).toHaveBeenCalledWith("id", "tenant-a");
-    expect(select).toHaveBeenCalledWith("id, whatsapp_notifications_enabled, whatsapp_recipient_phone, whatsapp_notification_time, timezone");
+    expect(select).toHaveBeenCalledWith(
+      "id, whatsapp_notifications_enabled, whatsapp_recipient_phone, whatsapp_notification_time, timezone",
+    );
   });
 
-  it.each(["0501234567", "971501234567", "+971 50 123 4567"])("rejects a non-exact E.164 recipient: %s", async (phone) => {
-    actionContext();
-    const form = new FormData();
-    form.set("enabled", "on");
-    form.set("phone", phone);
-    form.set("time", "09:00");
-    form.set("timezone", "Asia/Dubai");
-    await expect(updateWhatsAppSettingsAction({}, form)).resolves.toEqual({ error: "Enter a valid E.164 recipient, for example +971523743418." });
-    expect(update).not.toHaveBeenCalled();
-  });
+  it.each(["0501234567", "971501234567", "+971 50 123 4567"])(
+    "rejects a non-exact E.164 recipient: %s",
+    async (phone) => {
+      actionContext();
+      const form = new FormData();
+      form.set("enabled", "on");
+      form.set("phone", phone);
+      form.set("time", "09:00");
+      form.set("timezone", "Asia/Dubai");
+      await expect(updateWhatsAppSettingsAction({}, form)).resolves.toEqual({
+        error: "Enter a valid E.164 recipient, for example +971523743418.",
+      });
+      expect(update).not.toHaveBeenCalled();
+    },
+  );
 
   it("blocks non-owner writes before touching tenant data", async () => {
     actionContext("member");
-    await expect(updateWhatsAppSettingsAction({}, new FormData())).resolves.toEqual({ error: "Only the workspace owner can manage these settings." });
+    await expect(updateWhatsAppSettingsAction({}, new FormData())).resolves.toEqual({
+      error: "Only the workspace owner can manage these settings.",
+    });
     expect(update).not.toHaveBeenCalled();
   });
 
@@ -137,7 +162,12 @@ describe("tenant WhatsApp settings", () => {
   });
 
   it("sends the saved tenant recipient without changing digest history", async () => {
-    const single = vi.fn().mockResolvedValue({ data: { name: "Tenant A", whatsapp_recipient_phone: "+971523743418" }, error: null });
+    const single = vi
+      .fn()
+      .mockResolvedValue({
+        data: { name: "Tenant A", whatsapp_recipient_phone: "+971523743418" },
+        error: null,
+      });
     const eq = vi.fn().mockReturnValue({ single });
     getWorkspaceContext.mockResolvedValue({
       membership: { role: "owner" },
@@ -145,14 +175,33 @@ describe("tenant WhatsApp settings", () => {
       user: { id: "user-a" },
       supabase: { from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ eq }) }) },
     });
-    sendWhatsAppTemplateMessage.mockResolvedValue({ success: true, responseStatus: 200, messageId: "wamid.test" });
+    sendWhatsAppTemplateMessage.mockResolvedValue({
+      success: true,
+      responseStatus: 200,
+      messageId: "wamid.test",
+    });
 
     await expect(sendTestWhatsAppAction({}, new FormData())).resolves.toEqual({ success: true });
-    expect(sendWhatsAppTemplateMessage).toHaveBeenCalledWith(expect.objectContaining({
-      to: "+971523743418",
-      tenantId: "tenant-a",
-      components: [{ type: "body", parameters: expect.arrayContaining([{ type: "text", text: "Tenant A (TEST)" }]) }],
-    }));
+    expect(sendWhatsAppTemplateMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "+971523743418",
+        tenantId: "tenant-a",
+        templateName: "document_expiry_summary_v2",
+        components: [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: "Tenant A (TEST)" },
+              { type: "text", text: "0" },
+              { type: "text", text: "0" },
+              { type: "text", text: "0" },
+              { type: "text", text: "0" },
+              { type: "text", text: "https://noteitapp.com/renewals?range=30d" },
+            ],
+          },
+        ],
+      }),
+    );
     expect(update).not.toHaveBeenCalled();
   });
 

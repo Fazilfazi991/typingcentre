@@ -1,0 +1,17 @@
+.scope { min-width: 0; }
+
+@media (max-width: 760px) {
+  :global(.admin-shell):has(.scope),
+  :global(.admin-shell):has(.scope) :global(.admin-sidebar),
+  :global(.admin-shell):has(.scope) :global(.admin-sidebar nav),
+  :global(.admin-shell):has(.scope) :global(.admin-stage),
+  :global(.admin-shell):has(.scope) :global(.admin-content) {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  :global(.admin-shell):has(.scope) :global(.admin-sidebar nav) {
+    width: 100%;
+  }
+}

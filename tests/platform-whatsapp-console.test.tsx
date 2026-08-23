@@ -28,18 +28,18 @@ const inspection = {
 };
 
 describe("platform WhatsApp QA console", () => {
-  it("renders the internal console, template readiness, v2 preview, and static CTA URLs", () => {
+  it("renders the diagnostics console, template readiness, and customer-safe v2 preview", () => {
     const html = renderToStaticMarkup(<WhatsAppTestControl initialInspection={inspection} />);
-    expect(html).toContain("WhatsApp QA Console");
+    expect(html).toContain("System Health");
     expect(html).toContain("document_expiry_summary_v2");
     expect(html).toContain("document_expiry_summary_v3");
     expect(html).toContain("Ready to send");
     expect(html).toContain("10 renewals that need your attention");
-    expect(html).toContain("Review urgent");
+    expect(html).toContain("Review urgent renewals");
     expect(html).toContain("View all renewals");
-    expect(html).toContain("https://noteitapp.com/renewals?range=today");
-    expect(html).toContain("https://noteitapp.com/renewals?range=30d");
-    expect(html).toContain("Use full international format including +");
+    expect(html).toContain("/renewals?range=today");
+    expect(html).toContain("/renewals?range=30d");
+    expect(html).toContain("Use full international format, including +");
     expect(html).not.toContain("test-token");
     expect(html).not.toContain("service_role");
   });
@@ -51,14 +51,14 @@ describe("platform WhatsApp QA console", () => {
     expect(html).toContain("Within 30 days: 3");
   });
 
-  it("renders route diagnostic 404 separately from the V2 template preview", () => {
+  it("keeps route diagnostics out of the V2 template preview", () => {
     const html = renderToStaticMarkup(<TemplatePreview templateName="document_expiry_summary_v2" routes={[
       { path: "/renewals?range=today", state: "not_found", httpStatus: 404, label: "404" },
       { path: "/renewals?range=30d", state: "redirect", httpStatus: 307, label: "Redirect/auth expected" },
     ]} />);
-    expect(html).toContain("404");
-    expect(html).toContain("Redirect/auth expected");
-    expect(html).toContain("Review urgent");
+    expect(html).not.toContain("404");
+    expect(html).not.toContain("Redirect/auth expected");
+    expect(html).toContain("Review urgent renewals");
   });
 
   it("renders Meta acceptance and sanitized failure result states", () => {

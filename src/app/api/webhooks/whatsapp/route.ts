@@ -75,7 +75,7 @@ async function persistDeliveryStatus(status: z.infer<typeof metaStatusSchema>) {
   if (!admin) return;
   const firstError = (status.errors ?? []).map((item) => metaStatusErrorSchema.safeParse(item)).find((item) => item.success);
   const error = firstError?.success ? firstError.data : undefined;
-  const { error: persistenceError } = await admin.rpc("record_whatsapp_delivery_status", {
+  const parameters = {
     p_meta_message_id: status.id,
     p_status: status.status,
     p_event_at: statusTimestamp(status.timestamp) ?? null,
@@ -83,8 +83,12 @@ async function persistDeliveryStatus(status: z.infer<typeof metaStatusSchema>) {
     p_error_title: sanitizeMetaText(error?.title) ?? null,
     p_error_message: sanitizeMetaText(error?.message) ?? null,
     p_error_details: sanitizeMetaText(error?.error_data?.details) ?? null,
-  });
-  if (persistenceError)
+  };
+  const [tenantResult, qaResult] = await Promise.all([
+    admin.rpc("record_whatsapp_delivery_status", parameters),
+    admin.rpc("record_platform_whatsapp_qa_delivery_status", parameters),
+  ]);
+  if (tenantResult.error && qaResult.error)
     logWebhookEvent({ event_type: "status_persistence_failed", message_id: status.id, delivery_status: status.status });
 }
 

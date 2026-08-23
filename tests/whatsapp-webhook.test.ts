@@ -68,6 +68,7 @@ describe("WhatsApp webhook", () => {
     await expect(response.text()).resolves.toBe("challenge-value");
   });
 
+
   it("rejects an incorrect verification token", () => {
     const response = GET(
       new NextRequest(

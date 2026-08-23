@@ -1,5 +1,6 @@
 import "server-only";
-import { calculateDaysRemaining, expiryBoundaries } from "@/lib/dates/expiry";
+import { calculateDaysRemaining, expiryBoundaries, expiryDigestBucketForDays } from "@/lib/dates/expiry";
+import { isRelevantExpiryRecord } from "@/lib/renewals/records";
 import {
   buildExpiryEmail,
   type ExpiryDigest,
@@ -16,26 +17,12 @@ type OwnerProfile = { id: string; email: string | null; status: string };
 const one = <T>(value: Relation<T>) => (Array.isArray(value) ? value[0] : value);
 const isValidEmail = (value: string | null | undefined): value is string =>
   Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
-const active = (
-  record: { is_active?: boolean; status?: string; archived_at?: string | null } | null | undefined,
-) =>
-  Boolean(
-    record &&
-    record.is_active !== false &&
-    record.status !== "removed" &&
-    record.status !== "suspended" &&
-    !record.archived_at,
-  );
-
 export function emptyExpiryDigest(): ExpiryDigest {
   return { today: [], next7Days: [], next30Days: [] };
 }
 export function addDocumentToDigest(digest: ExpiryDigest, document: ExpiryEmailDocument) {
-  if (document.daysRemaining === 0) digest.today.push(document);
-  else if (document.daysRemaining >= 1 && document.daysRemaining <= 7)
-    digest.next7Days.push(document);
-  else if (document.daysRemaining >= 8 && document.daysRemaining <= 30)
-    digest.next30Days.push(document);
+  const bucket = expiryDigestBucketForDays(document.daysRemaining);
+  if (bucket) digest[bucket].push(document);
 }
 
 export function resolveTenantOwnerEmails(memberships: OwnerMembership[], profiles: OwnerProfile[]) {
@@ -66,14 +53,7 @@ export function buildDigestFromRows(rows: any[], now = new Date(), timezone?: st
     const company = one<any>(row.companies);
     const branch = one<any>(row.branches);
     const type = one<any>(row.organization_document_types);
-    if (
-      !active(row) ||
-      !active(type) ||
-      (customer && !active(customer)) ||
-      (company && !active(company)) ||
-      (branch && !active(branch))
-    )
-      continue;
+    if (!isRelevantExpiryRecord(row)) continue;
     const daysRemaining = calculateDaysRemaining(row.expires_on, now, timezone);
     if (daysRemaining === undefined) continue;
     addDocumentToDigest(digest, {
@@ -204,7 +184,7 @@ export async function runDailyExpiryNotifications(now = new Date()) {
       const email = buildExpiryEmail({
         organizationName: organization.name,
         digest,
-        dashboardUrl: `${baseUrl()}/documents?expiry=7-days`,
+        dashboardUrl: `${baseUrl()}/renewals?range=30d`,
       });
       const result = await resend.emails.send({
         from: env.RESEND_FROM_EMAIL,
@@ -275,7 +255,7 @@ export async function sendTestExpiryDigest(input: {
   const email = buildExpiryEmail({
     organizationName: organization.name,
     digest,
-    dashboardUrl: `${baseUrl()}/documents?expiry=7-days`,
+    dashboardUrl: `${baseUrl()}/renewals?range=30d`,
   });
   const result = await resend.emails.send({
     from: env.RESEND_FROM_EMAIL,

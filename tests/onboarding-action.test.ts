@@ -28,7 +28,7 @@ describe("onboarding action", () => {
     form.set("primaryColor", "#0E7BFF");
     form.set("acceptTerms", "true");
 
-    await expect(onboardAction({}, form)).rejects.toThrow("REDIRECT:/dashboard");
+    await expect(onboardAction({}, form)).rejects.toThrow("REDIRECT:/onboarding/setup");
     expect(rpc).toHaveBeenCalledWith("onboard_current_user", expect.objectContaining({
       organization_name: "Renewal QA",
       organization_slug: "renewal-qa",

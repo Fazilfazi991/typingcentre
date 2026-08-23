@@ -186,7 +186,7 @@ describe("tenant WhatsApp settings", () => {
       expect.objectContaining({
         to: "+971523743418",
         tenantId: "tenant-a",
-        templateName: "document_expiry_summary_v2",
+        templateName: "document_expiry_summary",
         components: [
           {
             type: "body",
@@ -196,7 +196,6 @@ describe("tenant WhatsApp settings", () => {
               { type: "text", text: "0" },
               { type: "text", text: "0" },
               { type: "text", text: "0" },
-              { type: "text", text: "https://noteitapp.com/renewals?range=30d" },
             ],
           },
         ],

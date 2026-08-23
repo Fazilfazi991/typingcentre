@@ -19,12 +19,22 @@ import {
   documentUploadSessionSchema,
   documentVersionIdSchema,
   documentExtractionConfirmationSchema,
+  documentDuplicateResolutionSchema,
   documentExtractionRequestSchema,
   normalizeOriginalFilename,
   validateDocumentFileMetadata,
 } from "./validation";
 
 type SafeResult<T> = { ok: true; data: T } | { ok: false; message: string };
+type DuplicateDocument = {
+  documentId: string;
+  displayName: string;
+  ownerName: string;
+  canReplace: boolean;
+};
+type ConfirmationResult =
+  | { ok: true; data: { documentId: string } }
+  | { ok: false; message: string; duplicate?: DuplicateDocument };
 
 async function workspaceOrUnavailable() {
   const context = await getWorkspaceContext();
@@ -313,25 +323,81 @@ export async function extractUploadedDocument(input: unknown): Promise<SafeResul
   }
 }
 
-export async function confirmDocumentExtraction(input: unknown): Promise<SafeResult<{ documentId: string }>> {
-  const parsed = documentExtractionConfirmationSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, message: "Review the document details and correct any invalid dates." };
-  const context = await workspaceOrUnavailable();
-  if (!context) return { ok: false, message: "Your workspace is unavailable." };
+async function confirmExtraction(
+  context: NonNullable<Awaited<ReturnType<typeof workspaceOrUnavailable>>>,
+  data: ReturnType<typeof documentExtractionConfirmationSchema.parse>,
+): Promise<ConfirmationResult> {
   const { data: document } = await context.supabase.from("documents").select("id, customer_id, company_id")
-    .eq("id", parsed.data.documentId).eq("organization_id", context.organization.id).maybeSingle();
+    .eq("id", data.documentId).eq("organization_id", context.organization.id).maybeSingle();
   if (!document) return { ok: false, message: "The document is unavailable." };
   const { data: type } = await context.supabase.from("organization_document_types").select("id")
-    .eq("id", parsed.data.documentTypeId).eq("organization_id", context.organization.id).eq("is_active", true).maybeSingle();
+    .eq("id", data.documentTypeId).eq("organization_id", context.organization.id).eq("is_active", true).maybeSingle();
   if (!type) return { ok: false, message: "Select an active document type." };
+
+  const documentNumber = toNull(data.documentNumber);
+  if (documentNumber) {
+    const { data: duplicate } = await context.supabase
+      .from("documents")
+      .select("id, display_name, customer_id, company_id, customers(full_name), companies(name)")
+      .eq("organization_id", context.organization.id)
+      .eq("document_number", documentNumber)
+      .neq("id", document.id)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (duplicate) {
+      const customer = Array.isArray(duplicate.customers) ? duplicate.customers[0] : duplicate.customers;
+      const company = Array.isArray(duplicate.companies) ? duplicate.companies[0] : duplicate.companies;
+      const sameOwner = duplicate.customer_id === document.customer_id && duplicate.company_id === document.company_id;
+      return {
+        ok: false,
+        message: "A document with that number already exists in this workspace.",
+        duplicate: {
+          documentId: duplicate.id,
+          displayName: duplicate.display_name,
+          ownerName: customer?.full_name ?? company?.name ?? "the selected owner",
+          canReplace: sameOwner,
+        },
+      };
+    }
+  }
+
   const { error } = await context.supabase.from("documents").update({
-    document_type_id: type.id, display_name: parsed.data.displayName, document_number: toNull(parsed.data.documentNumber),
-    issued_on: toNull(parsed.data.issueDate), expires_on: toNull(parsed.data.expiryDate), extraction_status: "confirmed",
-    extraction_data: parsed.data.extractionData,
+    document_type_id: type.id, display_name: data.displayName, document_number: documentNumber,
+    issued_on: toNull(data.issueDate), expires_on: toNull(data.expiryDate), extraction_status: "confirmed",
+    extraction_data: data.extractionData,
   } as any).eq("id", document.id).eq("organization_id", context.organization.id);
   if (error) return { ok: false, message: safeDatabaseError(error) };
   revalidatePath("/documents");
   if (document.customer_id) revalidatePath(`/customers/${document.customer_id}`);
   if (document.company_id) revalidatePath(`/companies/${document.company_id}`);
   return { ok: true, data: { documentId: document.id } };
+}
+
+export async function confirmDocumentExtraction(input: unknown): Promise<ConfirmationResult> {
+  const parsed = documentExtractionConfirmationSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Review the document details and correct any invalid dates." };
+  const context = await workspaceOrUnavailable();
+  if (!context) return { ok: false, message: "Your workspace is unavailable." };
+  return confirmExtraction(context, parsed.data);
+}
+
+export async function replaceDuplicateDocument(input: unknown): Promise<SafeResult<{ documentId: string }>> {
+  const parsed = documentDuplicateResolutionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Review the document details and try again." };
+  const context = await workspaceOrUnavailable();
+  if (!context) return { ok: false, message: "Your workspace is unavailable." };
+
+  const { data, error } = await context.supabase.rpc("replace_document_from_upload", {
+    draft_document_id: parsed.data.documentId,
+    existing_document_id: parsed.data.existingDocumentId,
+    review_document_type_id: parsed.data.documentTypeId,
+    review_display_name: parsed.data.displayName,
+    review_document_number: toNull(parsed.data.documentNumber),
+    review_issue_date: toNull(parsed.data.issueDate),
+    review_expiry_date: toNull(parsed.data.expiryDate),
+    review_extraction_data: parsed.data.extractionData,
+  });
+  if (error || !data) return { ok: false, message: "We could not update the existing document. Please try again." };
+  revalidatePath("/documents");
+  return { ok: true, data: { documentId: data as string } };
 }

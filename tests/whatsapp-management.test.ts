@@ -96,4 +96,39 @@ describe("WhatsApp management inspection", () => {
     expect(String(fetchMock.mock.calls[2][0])).toContain("after=next-page");
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer test-token");
   });
+
+  it("can inspect v1 and v2 together without creating or sending either template", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ data: [
+            { permission: "whatsapp_business_management", status: "granted" },
+            { permission: "whatsapp_business_messaging", status: "granted" },
+          ] }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ data: [
+            { id: "1", name: "document_expiry_summary", language: "en", status: "APPROVED", category: "UTILITY" },
+            { id: "2", name: "document_expiry_summary_v2", language: "en_US", status: "APPROVED", category: "UTILITY" },
+            { id: "3", name: "unrelated_template", language: "en_US", status: "APPROVED", category: "UTILITY" },
+          ] }),
+          { status: 200 },
+        ),
+      );
+
+    const result = await inspectWhatsAppManagement(
+      ["document_expiry_summary", "document_expiry_summary_v2"],
+      fetchMock,
+    );
+    expect(result.matchingTemplates.map((template) => template.name)).toEqual([
+      "document_expiry_summary",
+      "document_expiry_summary_v2",
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.every((call) => call[1]?.method === undefined)).toBe(true);
+  });
 });

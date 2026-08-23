@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { confirmDocumentExtraction, createDocumentUploadSession, extractUploadedDocument, finalizeDocumentUpload } from "./actions";
+import { confirmDocumentExtraction, createDocumentUploadSession, extractUploadedDocument, finalizeDocumentUpload, replaceDuplicateDocument } from "./actions";
 import type { DocumentExtraction } from "@/lib/document-ai/types";
 
 type TypeOption = { id: string; name: string };
@@ -76,8 +76,16 @@ export function SmartUploadForm({ documentId: existingDocumentId, customerId, co
     if (!extraction) return;
     setMessage("");
     const extractionData = { ...extraction, document_name: form.displayName, document_number: form.documentNumber || null, issue_date: form.issueDate || null, expiry_date: form.expiryDate || null, subject_name: form.subjectName || null, date_of_birth: form.dateOfBirth || null, nationality: form.nationality || null, issuing_authority: form.issuingAuthority || null, additional_fields: Object.fromEntries(additionalFields.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.value])) };
-    const result = await confirmDocumentExtraction({ documentId, documentTypeId, displayName: form.displayName, documentNumber: form.documentNumber, issueDate: form.issueDate, expiryDate: form.expiryDate, extractionData });
-    if (!result.ok) { setMessage(result.message); return; }
+    const input = { documentId, documentTypeId, displayName: form.displayName, documentNumber: form.documentNumber, issueDate: form.issueDate, expiryDate: form.expiryDate, extractionData };
+    const result = await confirmDocumentExtraction(input);
+    if (!result.ok) {
+      if (result.duplicate?.canReplace && window.confirm(`A document with this number already exists for ${result.duplicate.ownerName}. Replace it with this upload?`)) {
+        const replacement = await replaceDuplicateDocument({ ...input, existingDocumentId: result.duplicate.documentId });
+        if (replacement.ok) { setDocumentId(replacement.data.documentId); setStage("saved"); router.refresh(); return; }
+        setMessage(replacement.message); return;
+      }
+      setMessage(result.message); return;
+    }
     setStage("saved"); router.refresh();
   }
   function enterManually() {

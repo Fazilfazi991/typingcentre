@@ -57,9 +57,10 @@ async function graphJson(url: URL, accessToken: string, fetchImplementation: Fet
 }
 
 export async function inspectWhatsAppManagement(
-  templateName: string,
+  templateName: string | readonly string[],
   fetchImplementation: FetchImplementation = fetch,
 ): Promise<WhatsAppManagementInspection> {
+  const templateNames = new Set(Array.isArray(templateName) ? templateName : [templateName]);
   const env = getServerEnv();
   const graphApiVersion = env.WHATSAPP_GRAPH_API_VERSION ?? DEFAULT_GRAPH_API_VERSION;
   const wabaId = env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "";
@@ -151,7 +152,7 @@ export async function inspectWhatsAppManagement(
       ? (templateResponse.payload.data as WhatsAppTemplateRecord[])
       : [];
     result.returnedTemplateCount += rows.length;
-    result.matchingTemplates.push(...rows.filter((row) => row.name === templateName));
+    result.matchingTemplates.push(...rows.filter((row) => row.name && templateNames.has(row.name)));
     const nextAfter = templateResponse.payload.paging?.cursors?.after;
     after = typeof nextAfter === "string" && nextAfter ? nextAfter : undefined;
   } while (after && result.pagesFetched < MAX_TEMPLATE_PAGES);

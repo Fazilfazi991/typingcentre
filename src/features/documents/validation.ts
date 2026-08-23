@@ -63,6 +63,10 @@ export const documentExtractionConfirmationSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["expiryDate"], message: "Expiry date must be after issue date." });
   }
 });
+
+export const documentDuplicateResolutionSchema = documentExtractionConfirmationSchema.and(z.object({
+  existingDocumentId: z.string().uuid(),
+}));
 export const documentSignedAccessSchema = z.object({
   documentId: z.string().uuid(),
   versionId: z.string().uuid().optional(),

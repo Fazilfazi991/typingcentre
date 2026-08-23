@@ -4,12 +4,22 @@ import { getServerEnv } from "@/lib/config/env.server";
 const DEFAULT_GRAPH_API_VERSION = "v25.0";
 const REQUEST_TIMEOUT_MS = 10_000;
 
-export type WhatsAppTemplateComponent = {
-  type: "body" | "header" | "button";
-  parameters?: Array<Record<string, unknown>>;
-  sub_type?: string;
-  index?: string;
-};
+export type WhatsAppTemplateParameter = Record<string, unknown> & { type: string };
+export type WhatsAppTextParameter = { type: "text"; text: string };
+export type WhatsAppTemplateComponent =
+  | { type: "body" | "header"; parameters?: WhatsAppTemplateParameter[] }
+  | {
+      type: "button";
+      sub_type: "url";
+      index: `${number}`;
+      parameters: [WhatsAppTextParameter];
+    }
+  | {
+      type: "button";
+      sub_type: "quick_reply";
+      index: `${number}`;
+      parameters: [{ type: "payload"; payload: string }];
+    };
 
 export type WhatsAppSendResult =
   | { success: true; messageId?: string; responseStatus: number }

@@ -186,10 +186,9 @@ describe("tenant WhatsApp expiry dispatcher", () => {
           { type: "text", text: "2" },
           { type: "text", text: "7" },
           { type: "text", text: "10" },
-          { type: "text", text: EXPIRY_SUMMARY_REVIEW_URL },
         ],
       },
     ]);
-    expect(buildDocumentExpirySummaryComponents(tenant.name, counts)[0].parameters).toHaveLength(6);
+    expect(buildDocumentExpirySummaryComponents(tenant.name, counts)[0].parameters).toHaveLength(5);
   });
 });

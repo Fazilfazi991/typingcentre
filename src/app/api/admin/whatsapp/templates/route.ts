@@ -1,30 +1,27 @@
 import { NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getActivePlatformAdmin } from "@/lib/platform/auth";
 import { inspectWhatsAppManagement } from "@/lib/whatsapp/management";
+import { QA_TEMPLATE_NAMES, safeTemplate } from "@/lib/whatsapp/qa-console";
 
 export const runtime = "nodejs";
 
-async function platformAdmin() {
-  const supabase = await getSupabaseServerClient();
-  if (!supabase) return null;
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("platform_role,status")
-    .eq("id", user.id)
-    .maybeSingle();
-  return profile?.platform_role === "platform_admin" && profile.status === "active" ? user : null;
-}
-
 export async function GET() {
-  const user = await platformAdmin();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await getActivePlatformAdmin()))
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const inspection = await inspectWhatsAppManagement("document_expiry_summary");
-    return NextResponse.json(inspection, { headers: { "Cache-Control": "no-store" } });
+    const inspection = await inspectWhatsAppManagement(QA_TEMPLATE_NAMES);
+    return NextResponse.json(
+      {
+        graphApiVersion: inspection.graphApiVersion,
+        wabaId: inspection.wabaId,
+        permissions: inspection.permissions,
+        paginationComplete: inspection.paginationComplete,
+        returnedTemplateCount: inspection.returnedTemplateCount,
+        templates: inspection.matchingTemplates.map(safeTemplate),
+        error: inspection.error,
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch {
     return NextResponse.json(
       { error: "WhatsApp template inspection failed." },

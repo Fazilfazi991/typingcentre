@@ -24,7 +24,6 @@ export function LoginForm({ next }: { next?: string }) {
 
       {state.error && <p className="auth-error" role="alert">{state.error}</p>}
       <button className="auth-submit" disabled={pending} type="submit">{pending ? "Signing in..." : "Sign in"}</button>
-      <div className="auth-links"><a href="/forgot-password">Forgot password?</a></div>
     </form>
     <DemoLoginButton />
   </>;

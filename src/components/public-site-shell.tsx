@@ -26,7 +26,6 @@ export function PublicSiteShell({ children }: { children: React.ReactNode }) {
           <Link href="/terms">Terms</Link>
           <Link href="/data-deletion">Data Deletion</Link>
         </nav>
-        <a href={`mailto:${LEGAL_CONTACT_EMAIL}`}>{LEGAL_CONTACT_EMAIL}</a>
       </footer>
     </div>
   );

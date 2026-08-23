@@ -1,0 +1,27 @@
+@media (max-width: 700px) {
+  .footer {
+    gap: 16px;
+  }
+
+  .footer > div span {
+    max-width: 34ch;
+    line-height: 1.5;
+  }
+
+  .footer nav {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 16px;
+  }
+
+  .footer nav a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .footer nav a:last-child {
+    grid-column: 1 / -1;
+  }
+}

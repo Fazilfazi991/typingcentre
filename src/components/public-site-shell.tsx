@@ -1,6 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import styles from "./public-site-shell.module.css";
 
 export const LEGAL_CONTACT_EMAIL = "fazil@zorxmedia.com";
 
@@ -16,7 +17,7 @@ export function PublicSiteShell({ children }: { children: React.ReactNode }) {
         </Link>
       </header>
       {children}
-      <footer className="public-site-footer">
+      <footer className={`public-site-footer ${styles.footer}`}>
         <div>
           <strong>Note It</strong>
           <span>A product and service operated by Fusion Ventures FZ-LLC.</span>

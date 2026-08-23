@@ -1,0 +1,5 @@
+@media (max-width: 760px) {
+  .admin-shell { grid-template-columns: minmax(0, 1fr); }
+  .admin-sidebar, .admin-sidebar nav { min-width: 0; }
+  .admin-sidebar nav { max-width: 100%; }
+}

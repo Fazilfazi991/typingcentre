@@ -1,4 +1,5 @@
 import "./admin.css";
+import "./admin-mobile.css";
 import Link from "next/link";
 import { logoutAction } from "@/app/(auth)/actions";
 import { requirePlatformAdmin } from "@/lib/platform/admin";

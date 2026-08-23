@@ -62,10 +62,12 @@ begin
 
   insert into public.documents (organization_id, document_type_id, customer_id, document_number, issued_on, expires_on, status, notes)
   select target_organization_id,
-    (select id from public.organization_document_types where organization_id = target_organization_id and name = case (n % 4) when 0 then 'Passport' when 1 then 'Emirates ID' when 2 then 'Labour Card' else 'Medical Insurance' end),
+    (select id from public.organization_document_types where organization_id = target_organization_id and name = case ((n - 1) % 8)
+      when 0 then 'Emirates ID' when 1 then 'Passport' when 2 then 'Trade Licence' when 3 then 'Establishment Card'
+      when 4 then 'Residence Visa' when 5 then 'Labour Card' when 6 then 'Medical Insurance' else 'Tenancy Contract / Ejari' end),
     (select id from public.customers where organization_id = target_organization_id and email like '%@demo.renewtrack.invalid' order by email offset ((n - 1) % 15) limit 1),
     'QA-DEMO-DOC-' || lpad(n::text, 3, '0'), current_date - interval '1 year',
-    case when n <= 5 then current_date - n when n <= 11 then current_date + (n - 5) when n <= 21 then current_date + (n - 3) else current_date + (n + 45) end,
+    case when n <= 5 then current_date - n when n = 6 then current_date when n <= 11 then current_date + (n - 6) when n <= 21 then current_date + (n - 3) else current_date + (n + 45) end,
     case when n >= 33 then 'renewal_in_progress'::public.document_status when n <= 5 then 'expired'::public.document_status when n <= 11 then 'urgent'::public.document_status else 'valid'::public.document_status end,
     'Hosted QA demo record'
   from generate_series(1, 36) as n
@@ -77,7 +79,10 @@ begin
     and not exists (select 1 from public.renewals r where r.organization_id = target_organization_id and r.document_id = d.id);
 
   insert into public.follow_ups (organization_id, customer_id, document_id, due_at, status, completed_at, note)
-  select target_organization_id, d.customer_id, d.id, date_trunc('day', now()) + make_interval(hours => 9 + n),
+  select target_organization_id, d.customer_id, d.id,
+    case when n <= 2 then date_trunc('day', now()) + make_interval(hours => 9 + n)
+      when n <= 5 then date_trunc('day', now()) + make_interval(days => n - 2, hours => 10)
+      else date_trunc('day', now()) - interval '1 day' end,
     case when n = 6 then 'completed'::public.follow_up_status else 'pending'::public.follow_up_status end,
     case when n = 6 then timezone('utc', now()) else null end, 'QA demo follow-up'
   from generate_series(1, 6) as n join public.documents d on d.organization_id = target_organization_id and d.document_number = 'QA-DEMO-DOC-' || lpad(n::text, 3, '0')

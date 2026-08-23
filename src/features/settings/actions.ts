@@ -9,6 +9,7 @@ import {
 import { normalizeWhatsAppRecipient } from "@/lib/whatsapp/sender";
 import { sendWhatsAppTemplateMessage } from "@/lib/whatsapp/sender";
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { isDemoWorkspace } from "@/lib/demo/workspace";
 
 export type WhatsAppSettingsActionState = {
   success?: boolean;
@@ -34,6 +35,8 @@ export async function updateWhatsAppSettingsAction(
   formData: FormData,
 ): Promise<WhatsAppSettingsActionState> {
   const context = await getWorkspaceContext();
+  if (context && isDemoWorkspace({ email: context.user.email, organizationSlug: context.organization.slug }))
+    return { error: "This action is disabled in the demo workspace." };
   if (!context || context.membership.role !== "owner")
     return { error: "Only the workspace owner can manage these settings." };
   const parsed = settingsSchema.safeParse({
@@ -86,6 +89,8 @@ export async function sendTestWhatsAppAction(
   _formData: FormData,
 ): Promise<WhatsAppSettingsActionState> {
   const context = await getWorkspaceContext();
+  if (context && isDemoWorkspace({ email: context.user.email, organizationSlug: context.organization.slug }))
+    return { error: "This action is disabled in the demo workspace." };
   if (!context || context.membership.role !== "owner")
     return { error: "Only the workspace owner can send a test WhatsApp." };
 

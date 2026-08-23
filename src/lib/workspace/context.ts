@@ -10,7 +10,7 @@ export type WorkspaceContext = {
   user: { id: string; email?: string };
   profile: { id: string; full_name: string | null; platform_role: string; status: string };
   membership: { organization_id: string; role: string; status: string; is_primary_owner: boolean };
-  organization: { id: string; name: string; location: string; timezone: string; primary_color: string; status: string; is_active: boolean };
+  organization: { id: string; name: string; slug: string; location: string; timezone: string; primary_color: string; status: string; is_active: boolean };
   subscription: { plan: string; status: string };
 };
 
@@ -30,7 +30,7 @@ export const getWorkspaceContext = cache(async (returnTo?: string): Promise<Work
   if (!membership || membership.status !== "active") redirect("/account-inactive" as never);
 
   const [{ data: organization }, { data: subscription }] = await Promise.all([
-    supabase.from("organizations").select("id, name, location, timezone, primary_color, status, is_active").eq("id", membership.organization_id).maybeSingle(),
+    supabase.from("organizations").select("id, name, slug, location, timezone, primary_color, status, is_active").eq("id", membership.organization_id).maybeSingle(),
     supabase.from("organization_subscriptions").select("plan, status").eq("organization_id", membership.organization_id).maybeSingle(),
   ]);
   if (!organization || !subscription) redirect("/account-inactive" as never);

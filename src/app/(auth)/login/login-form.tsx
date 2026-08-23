@@ -2,12 +2,13 @@
 
 import { useActionState, useState } from "react";
 import { loginAction } from "../actions";
+import { DemoLoginButton } from "./demo-login-button";
 
 export function LoginForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState(loginAction, { error: "" });
   const [showPassword, setShowPassword] = useState(false);
 
-  return (
+  return <>
     <form action={action} className="auth-form">
       {next && <input type="hidden" name="next" value={next} />}
       <label htmlFor="email">Email address</label>
@@ -23,10 +24,8 @@ export function LoginForm({ next }: { next?: string }) {
 
       {state.error && <p className="auth-error" role="alert">{state.error}</p>}
       <button className="auth-submit" disabled={pending} type="submit">{pending ? "Signing in..." : "Sign in"}</button>
-      <div className="auth-links">
-        <a href="/forgot-password">Forgot password?</a>
-        <a href="/demo">Try the demo</a>
-      </div>
+      <div className="auth-links"><a href="/forgot-password">Forgot password?</a></div>
     </form>
-  );
+    <DemoLoginButton />
+  </>;
 }

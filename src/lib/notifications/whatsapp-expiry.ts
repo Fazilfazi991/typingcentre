@@ -16,6 +16,7 @@ import {
   sendWhatsAppTemplateMessage,
   type WhatsAppSendResult,
 } from "@/lib/whatsapp/sender";
+import { isDemoOrganizationSlug } from "@/lib/demo/workspace";
 
 const DELIVERY_WINDOW_MINUTES = 60;
 const TENANT_BATCH_SIZE = 200;
@@ -26,6 +27,7 @@ const RETRY_DELAY_MINUTES = 15;
 export type WhatsAppTenant = {
   id: string;
   name: string;
+  slug: string;
   timezone: string;
   whatsapp_notifications_enabled: boolean;
   whatsapp_recipient_phone: string | null;
@@ -141,7 +143,7 @@ export async function runWhatsAppExpiryNotifications(now = new Date()) {
   for (let from = 0; ; from += TENANT_BATCH_SIZE) {
     const { data, error } = await admin
       .from("organizations")
-      .select("id,name,timezone,whatsapp_notifications_enabled,whatsapp_recipient_phone,whatsapp_notification_time,organization_subscriptions!inner(status)")
+      .select("id,name,slug,timezone,whatsapp_notifications_enabled,whatsapp_recipient_phone,whatsapp_notification_time,organization_subscriptions!inner(status)")
       .eq("status", "active")
       .eq("is_active", true)
       .in("organization_subscriptions.status", ["trial", "active", "past_due"])
@@ -242,6 +244,10 @@ export async function runWhatsAppExpiryNotifications(now = new Date()) {
 
   const results = await mapWithConcurrency(tenants, SEND_CONCURRENCY, async (tenant) => {
     try {
+      if (isDemoOrganizationSlug(tenant.slug)) {
+        schedulerLog({ scheduler_run_id: runId, tenant_id: tenant.id, action: "skipped_demo" });
+        return "skipped_disabled" as const;
+      }
       const result = await dispatchWhatsAppExpiryForTenant(tenant, now, dependencies);
       schedulerLog({ scheduler_run_id: runId, tenant_id: tenant.id, summary_local_date: result.localDate, action: result.action, message_id: result.messageId });
       return result.action;

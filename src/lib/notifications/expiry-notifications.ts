@@ -9,6 +9,7 @@ import { getResendClient } from "@/lib/email/resend-client";
 import { getServerEnv } from "@/lib/config/env.server";
 import { publicEnv } from "@/lib/config/env.public";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isDemoOrganizationSlug } from "@/lib/demo/workspace";
 
 type Relation<T> = T | T[] | null | undefined;
 type OwnerMembership = { organization_id: string; user_id: string };
@@ -107,7 +108,7 @@ export async function runDailyExpiryNotifications(now = new Date()) {
   ] = await Promise.all([
     admin
       .from("organizations")
-      .select("id,name,status,is_active,organization_subscriptions!inner(status)")
+      .select("id,name,slug,status,is_active,organization_subscriptions!inner(status)")
       .eq("status", "active")
       .eq("is_active", true)
       .in("organization_subscriptions.status", ["trial", "active", "past_due"]),
@@ -149,6 +150,10 @@ export async function runDailyExpiryNotifications(now = new Date()) {
     skipped = 0,
     failed = 0;
   for (const organization of organizationRows as any[]) {
+    if (isDemoOrganizationSlug(organization.slug)) {
+      skipped++;
+      continue;
+    }
     const recipient = owners.get(organization.id);
     const digest = buildDigestFromRows(documentsByOrganization.get(organization.id) ?? [], now);
     if (
@@ -253,7 +258,7 @@ export async function sendTestExpiryDigest(input: {
   const [{ data: organization }, { data: rows }] = await Promise.all([
     admin
       .from("organizations")
-      .select("id,name,status,is_active")
+      .select("id,name,slug,status,is_active")
       .eq("id", input.organizationId)
       .eq("status", "active")
       .eq("is_active", true)
@@ -270,6 +275,8 @@ export async function sendTestExpiryDigest(input: {
   ]);
   if (!organization) throw new Error("Active organization not found.");
   const digest = buildDigestFromRows(rows ?? [], now);
+  if (isDemoOrganizationSlug(organization.slug))
+    throw new Error("This action is disabled in the demo workspace.");
   if (!digest.today.length && !digest.next7Days.length && !digest.next30Days.length)
     throw new Error("No upcoming active documents for this organization.");
   const email = buildExpiryEmail({

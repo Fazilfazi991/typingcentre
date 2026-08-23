@@ -82,8 +82,8 @@ export async function provisionTypingCentre(_: ProvisioningResult, formData: For
     return { organizationId: organization.id, ownerEmail: input.email, accountState: input.state };
   } catch (error) {
     const diagnostic = error && typeof error === "object" ? error as { code?: unknown; message?: unknown } : {};
-    // eslint-disable-next-line no-console -- server-only operational diagnostic; it excludes input, email, and password.
     const supabaseProjectRef = (() => { try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").hostname.split(".")[0] ?? "unknown"; } catch { return "unknown"; } })();
+    // eslint-disable-next-line no-console -- server-only operational diagnostic; it excludes input, email, and password.
     console.error(JSON.stringify({ event: "typing_centre_provision_failed", stage: provisioningStage, code: diagnostic.code, message: diagnostic.message, supabaseProjectRef }));
     const cleanupFailures: string[] = [];
     if (organizationId) { const { error } = await context.admin.from("organizations").delete().eq("id", organizationId); if (error) cleanupFailures.push("organization"); }

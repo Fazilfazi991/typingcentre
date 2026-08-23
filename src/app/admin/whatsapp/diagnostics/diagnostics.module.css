@@ -1,4 +1,4 @@
-.scope { min-width: 0; }
+.scope { min-width: 0; width: 100%; max-width: 100%; }
 
 @media (max-width: 760px) {
   :global(.admin-shell):has(.scope),
@@ -14,4 +14,27 @@
   :global(.admin-shell):has(.scope) :global(.admin-sidebar nav) {
     width: 100%;
   }
+
+  .scope :global(.admin-page-heading),
+  .scope :global(.diagnostics-section),
+  .scope :global(.platform-qa-summary),
+  .scope :global(.platform-test-grid),
+  .scope :global(.platform-latest-grid),
+  .scope :global(.platform-lower-grid),
+  .scope :global(.platform-inspector-grid),
+  .scope :global(.panel),
+  .scope :global(.platform-send-form),
+  .scope :global(.platform-send-form label) {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .scope :global(.platform-test-grid),
+  .scope :global(.platform-latest-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scope :global(.platform-send-form input),
+  .scope :global(.platform-send-form select) { width: 100%; box-sizing: border-box; }
 }

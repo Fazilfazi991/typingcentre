@@ -1,15 +1,20 @@
 import "server-only";
-import { getServerEnv } from "@/lib/config/env.server";
+
+function getConfiguredDemoValue(name: "DEMO_USER_EMAIL" | "DEMO_USER_PASSWORD" | "DEMO_ORGANIZATION_SLUG") {
+  const value = process.env[name]?.trim();
+  return value || null;
+}
 
 /** A demo identity is deliberately configured only on the server. */
 export function getDemoCredentials() {
-  const env = getServerEnv();
-  if (!env.DEMO_USER_EMAIL || !env.DEMO_USER_PASSWORD) return null;
-  return { email: env.DEMO_USER_EMAIL, password: env.DEMO_USER_PASSWORD };
+  const email = getConfiguredDemoValue("DEMO_USER_EMAIL");
+  const password = getConfiguredDemoValue("DEMO_USER_PASSWORD");
+  if (!email || !password) return null;
+  return { email, password };
 }
 
 export function isDemoOrganizationSlug(slug: string | null | undefined) {
-  const configured = getServerEnv().DEMO_ORGANIZATION_SLUG ?? "al-noor-typing-centre";
+  const configured = getConfiguredDemoValue("DEMO_ORGANIZATION_SLUG") ?? "al-noor-typing-centre";
   return slug === configured;
 }
 
@@ -17,7 +22,7 @@ export function isDemoWorkspace(input: {
   email?: string | null;
   organizationSlug?: string | null;
 }) {
-  const configuredEmail = getServerEnv().DEMO_USER_EMAIL;
+  const configuredEmail = getConfiguredDemoValue("DEMO_USER_EMAIL");
   return Boolean(
     configuredEmail &&
       input.email?.toLowerCase() === configuredEmail.toLowerCase() &&

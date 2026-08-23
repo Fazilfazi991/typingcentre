@@ -63,20 +63,27 @@ export async function provisionTypingCentre(_: ProvisioningResult, formData: For
   if (!owner.email_confirmed_at) { await context.admin.auth.admin.deleteUser(owner.id); return { error: "We could not confirm the owner email. No account was created." }; }
 
   let organizationId: string | undefined;
+  let provisioningStage = "profile";
   try {
     const { error: profileError } = await context.admin.from("profiles").upsert({ id: owner.id, email: input.email, full_name: input.ownerName, status: "active" });
     if (profileError) throw profileError;
+    provisioningStage = "organization";
     const org = { name: input.name, legal_name: input.legalName ?? null, slug, location: input.country ? `${input.location}, ${input.country}` : input.location, business_email: input.email, phone: input.phone, whatsapp_number: input.whatsapp ?? null, address: input.address ?? null, account_state: input.state, status: input.state === "suspended" ? "suspended" : "active", is_active: input.state !== "suspended", onboarding_completed_at: today() };
     const { data: organization, error } = await context.admin.from("organizations").insert(org).select("id").single(); if (error || !organization) throw error ?? new Error("Organization creation returned no record.");
     organizationId = organization.id;
+    provisioningStage = "membership_subscription_usage";
     const subscriptionStatus = input.state === "trial" ? "trial" : input.state === "active" ? "active" : "suspended";
     const subscription = canonicalSubscription(input.billing);
     const results = await Promise.all([context.admin.from("organization_memberships").insert({ organization_id: organization.id, user_id: owner.id, role: "owner", status: "active", is_primary_owner: true }), context.admin.from("organization_subscriptions").insert({ organization_id: organization.id, ...subscription, currency: "AED", status: subscriptionStatus, trial_ends_at: subscriptionStatus === "trial" ? subscription.current_period_ends_at : null }), context.admin.from("organization_usage_counters").insert({ organization_id: organization.id })]);
     if (results.some((result) => result.error)) throw new Error("Tenant setup could not be completed.");
+    provisioningStage = "audit";
     await writePlatformAudit(context, { action: "tenant.created", targetType: "organization", targetId: organization.id, organizationId: organization.id, after: { name: input.name, ownerEmail: input.email, plan: subscription.plan } });
     revalidatePath("/admin/typing-centres");
     return { organizationId: organization.id, ownerEmail: input.email, accountState: input.state };
-  } catch {
+  } catch (error) {
+    const diagnostic = error && typeof error === "object" ? error as { code?: unknown; message?: unknown } : {};
+    // eslint-disable-next-line no-console -- server-only operational diagnostic; it excludes input, email, and password.
+    console.error(JSON.stringify({ event: "typing_centre_provision_failed", stage: provisioningStage, code: diagnostic.code, message: diagnostic.message }));
     const cleanupFailures: string[] = [];
     if (organizationId) { const { error } = await context.admin.from("organizations").delete().eq("id", organizationId); if (error) cleanupFailures.push("organization"); }
     const { error: authCleanupError } = await context.admin.auth.admin.deleteUser(owner.id); if (authCleanupError) cleanupFailures.push("auth_user");

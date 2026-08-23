@@ -13,7 +13,7 @@ describe("Note It subscription pricing", () => {
     expect(planLabel("starter")).toBe("Note It"); expect(planLabel("business")).toBe("business"); expect(billingLabel("yearly")).toBe("Annual · 13 months"); expect(billingLabel("custom")).toBe("custom");
   });
   it("offers only canonical billing in the new-account form", () => {
-    const page = readFileSync("src/app/admin/typing-centres/new/page.tsx", "utf8");
+    const page = readFileSync("src/app/admin/typing-centres/new/typing-centre-provision-form.tsx", "utf8");
     expect(page).toContain('name="billing"'); expect(page).toContain("AED 100 / month"); expect(page).toContain("AED 1,000 / 13 months"); expect(page).toContain("Save AED 300");
     for (const legacy of ['<option value="starter"', '<option value="business"', '<option value="pro"', 'value="quarterly"', 'value="custom"', 'name="plan"', 'name="amount"', 'name="renewal"']) expect(page).not.toContain(legacy);
   });

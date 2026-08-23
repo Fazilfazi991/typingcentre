@@ -2,7 +2,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requirePlatformAdmin, writePlatformAudit } from "@/lib/platform/admin";
-import { canonicalSubscription, type CanonicalBilling } from "@/lib/platform/subscription-pricing";
+import { canonicalSubscription } from "@/lib/platform/subscription-pricing";
+import { isDuplicateAuthEmail, typingCentreProvisionSchema } from "@/lib/platform/provisioning";
 
 const id = z.string().uuid();
 function text(value: FormDataEntryValue | null) { return typeof value === "string" ? value.trim() : ""; }
@@ -48,17 +49,44 @@ export async function addAdminNote(formData: FormData) {
   await writePlatformAudit(context, { action: "tenant.note_added", targetType: "organization", targetId: organizationId, organizationId, after: { noteAdded: true, at: today() } }); revalidatePath(`/admin/typing-centres/${organizationId}`);
 }
 
-export async function provisionTypingCentre(formData: FormData) {
+export type ProvisioningResult = { error?: string; organizationId?: string; ownerEmail?: string; accountState?: string };
+
+export async function provisionTypingCentre(_: ProvisioningResult, formData: FormData): Promise<ProvisioningResult> {
   const context = await requirePlatformAdmin("/admin/typing-centres/new");
-  const input = z.object({ name: z.string().min(2).max(160), legalName: z.string().max(160).optional(), email: z.string().email(), ownerName: z.string().min(2).max(160), ownerMobile: z.string().min(6).max(30), phone: z.string().min(6).max(30), whatsapp: z.string().max(30).optional(), address: z.string().max(300).optional(), location: z.string().min(2).max(120), country: z.string().max(80).optional(), billing: z.enum(["monthly", "annual"]), state: z.enum(["active", "trial", "paused", "suspended"]) }).parse({ name: text(formData.get("name")), legalName: text(formData.get("legalName")) || undefined, email: text(formData.get("email")), ownerName: text(formData.get("ownerName")), ownerMobile: text(formData.get("ownerMobile")), phone: text(formData.get("phone")), whatsapp: text(formData.get("whatsapp")) || undefined, address: text(formData.get("address")) || undefined, location: text(formData.get("location")), country: text(formData.get("country")) || undefined, billing: text(formData.get("billing")), state: text(formData.get("state")) });
+  const parsed = typingCentreProvisionSchema.safeParse({ name: text(formData.get("name")), legalName: text(formData.get("legalName")) || undefined, email: text(formData.get("email")), ownerName: text(formData.get("ownerName")), ownerMobile: text(formData.get("ownerMobile")), phone: text(formData.get("phone")), whatsapp: text(formData.get("whatsapp")) || undefined, address: text(formData.get("address")) || undefined, location: text(formData.get("location")), country: text(formData.get("country")) || undefined, billing: text(formData.get("billing")), state: text(formData.get("state")), password: text(formData.get("password")), confirmPassword: text(formData.get("confirmPassword")) });
+  if (!parsed.success) return { error: parsed.error.issues.some((issue) => issue.path[0] === "confirmPassword") ? "Passwords do not match." : "Check the typing centre and owner details, including a password of at least 12 characters." };
+  const input = parsed.data;
   const slugBase = input.name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 54) || "typing-centre"; const slug = `${slugBase}-${Math.random().toString(36).slice(2, 8)}`;
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://noteitapp.com").replace(/\/$/, "");
-  const { data: invite, error: inviteError } = await context.admin.auth.admin.inviteUserByEmail(input.email, { data: { full_name: input.ownerName }, redirectTo: `${appUrl}/auth/callback?next=/onboarding/setup` }); if (inviteError || !invite.user) throw new Error("Could not send the owner invitation.");
-  const org = { name: input.name, legal_name: input.legalName ?? null, slug, location: input.country ? `${input.location}, ${input.country}` : input.location, business_email: input.email, phone: input.phone, whatsapp_number: input.whatsapp ?? null, address: input.address ?? null, account_state: input.state, status: input.state === "suspended" ? "suspended" : "active", is_active: input.state !== "suspended" };
-  const { data: organization, error } = await context.admin.from("organizations").insert(org).select("id").single(); if (error) throw error;
-  const subscriptionStatus = input.state === "trial" ? "trial" : input.state === "active" ? "active" : "suspended";
-  const subscription = canonicalSubscription(input.billing as CanonicalBilling); const results = await Promise.all([context.admin.from("organization_memberships").insert({ organization_id: organization.id, user_id: invite.user.id, role: "owner", status: "active", is_primary_owner: true }), context.admin.from("organization_subscriptions").insert({ organization_id: organization.id, ...subscription, currency: "AED", status: subscriptionStatus, trial_ends_at: subscriptionStatus === "trial" ? subscription.current_period_ends_at : null }), context.admin.from("organization_usage_counters").insert({ organization_id: organization.id })]); if (results.some((r) => r.error)) throw new Error("Typing centre was created but setup is incomplete; contact support before retrying.");
-  await writePlatformAudit(context, { action: "tenant.created", targetType: "organization", targetId: organization.id, organizationId: organization.id, after: { name: input.name, ownerEmail: input.email, plan: subscription.plan } }); revalidatePath("/admin/typing-centres");
+  const { data: authData, error: authError } = await context.admin.auth.admin.createUser({ email: input.email, password: input.password, email_confirm: true, user_metadata: { full_name: input.ownerName } });
+  if (authError || !authData.user) return { error: isDuplicateAuthEmail(authError) ? "An account already exists for this email." : "We could not create the owner account. Please try again." };
+  const owner = authData.user;
+  if (!owner.email_confirmed_at) { await context.admin.auth.admin.deleteUser(owner.id); return { error: "We could not confirm the owner email. No account was created." }; }
+
+  let organizationId: string | undefined;
+  try {
+    const { error: profileError } = await context.admin.from("profiles").upsert({ id: owner.id, email: input.email, full_name: input.ownerName, status: "active" });
+    if (profileError) throw profileError;
+    const org = { name: input.name, legal_name: input.legalName ?? null, slug, location: input.country ? `${input.location}, ${input.country}` : input.location, business_email: input.email, phone: input.phone, whatsapp_number: input.whatsapp ?? null, address: input.address ?? null, account_state: input.state, status: input.state === "suspended" ? "suspended" : "active", is_active: input.state !== "suspended", onboarding_completed_at: today() };
+    const { data: organization, error } = await context.admin.from("organizations").insert(org).select("id").single(); if (error || !organization) throw error ?? new Error("Organization creation returned no record.");
+    organizationId = organization.id;
+    const subscriptionStatus = input.state === "trial" ? "trial" : input.state === "active" ? "active" : "suspended";
+    const subscription = canonicalSubscription(input.billing);
+    const results = await Promise.all([context.admin.from("organization_memberships").insert({ organization_id: organization.id, user_id: owner.id, role: "owner", status: "active", is_primary_owner: true }), context.admin.from("organization_subscriptions").insert({ organization_id: organization.id, ...subscription, currency: "AED", status: subscriptionStatus, trial_ends_at: subscriptionStatus === "trial" ? subscription.current_period_ends_at : null }), context.admin.from("organization_usage_counters").insert({ organization_id: organization.id })]);
+    if (results.some((result) => result.error)) throw new Error("Tenant setup could not be completed.");
+    await writePlatformAudit(context, { action: "tenant.created", targetType: "organization", targetId: organization.id, organizationId: organization.id, after: { name: input.name, ownerEmail: input.email, plan: subscription.plan } });
+    revalidatePath("/admin/typing-centres");
+    return { organizationId: organization.id, ownerEmail: input.email, accountState: input.state };
+  } catch {
+    const cleanupFailures: string[] = [];
+    if (organizationId) { const { error } = await context.admin.from("organizations").delete().eq("id", organizationId); if (error) cleanupFailures.push("organization"); }
+    const { error: authCleanupError } = await context.admin.auth.admin.deleteUser(owner.id); if (authCleanupError) cleanupFailures.push("auth_user");
+    if (cleanupFailures.length) {
+      // eslint-disable-next-line no-console -- server-side operational diagnostic; it excludes email and password.
+      console.error(JSON.stringify({ event: "typing_centre_provision_rollback_incomplete", organizationId, ownerId: owner.id, cleanupFailures }));
+      return { error: "Typing Centre setup could not be completed. Contact support before retrying." };
+    }
+    return { error: "Typing Centre setup could not be completed. The newly created account was removed; no retry is needed." };
+  }
 }
 
 export async function savePlatformSettings(formData: FormData) {

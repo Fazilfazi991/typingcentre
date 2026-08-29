@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(resolve(process.cwd(), "supabase/migrations/20260805162339_initial_multi_tenant_schema.sql"), "utf8");
 const seed = readFileSync(resolve(process.cwd(), "supabase/seed.sql"), "utf8");
-const hostedQaSeed = readFileSync(resolve(process.cwd(), "supabase/seeds/hosted-al-noor-demo.sql"), "utf8");
+const hostedQaSeed = readFileSync(resolve(process.cwd(), "supabase/seeds/hosted-note-it-demo.sql"), "utf8");
 
 describe("Supabase foundation files", () => {
   it("defines all core tenant tables and composite tenant relationships", () => {
@@ -38,10 +38,10 @@ describe("Supabase foundation files", () => {
   });
 
   it("keeps the hosted QA seed tenant-scoped and free of Auth mutations", () => {
-    expect(hostedQaSeed).toContain("slug = 'al-noor-typing-centre'");
+    expect(hostedQaSeed).toContain("slug = 'note-it-demo'");
     expect(hostedQaSeed).toContain("set_config('request.jwt.claim.sub'");
     expect(hostedQaSeed).toContain("QA-DEMO-DOC-");
-    expect(hostedQaSeed).not.toContain("display_name");
+    expect(hostedQaSeed).toContain("display_name");
     expect(hostedQaSeed).not.toMatch(/auth\.users/i);
   });
 });

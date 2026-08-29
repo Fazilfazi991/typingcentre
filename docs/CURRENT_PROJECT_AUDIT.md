@@ -29,7 +29,7 @@ Demo accounts are Platform Admin (`admin@renewtrack.ae`), Al Noor (`owner@alnoor
 
 ## Migration approach
 
-The source prototype is preserved in `legacy-prototype/index.html`; a deployable copy is served at `public/legacy-prototype/index.html` while the Next.js shell embeds it. This deliberately retains the demonstrable UI during the staged migration. Shared types, demo fixtures, storage adapter, central configuration, validation and date utilities are the first production-facing seams. Subsequent stages will replace the frame incrementally with App Router screens, Supabase Auth and RLS-backed data.
+The original browser-local prototype was used during the staged migration and has now been removed. The canonical demo is the real App Router application backed by Supabase Auth, tenant membership, and RLS-protected data.
 
 ## Retain now / rewrite later
 

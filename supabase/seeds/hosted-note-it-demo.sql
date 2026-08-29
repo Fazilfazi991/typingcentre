@@ -1,5 +1,5 @@
--- MANUAL HOSTED QA SEED: run only in the Supabase SQL Editor for the fictional Al Noor tenant.
--- It aborts unless the existing Al Noor tenant has exactly one active primary owner membership.
+-- MANUAL HOSTED QA SEED: run only in the Supabase SQL Editor for the fictional dedicated Note It demo tenant.
+-- It aborts unless the existing dedicated Note It demo tenant has exactly one active primary owner membership.
 -- It never creates Auth users, changes RLS, or touches another organisation.
 begin;
 
@@ -8,8 +8,8 @@ declare
   target_organization_id uuid;
   target_owner_id uuid;
 begin
-  select id into target_organization_id from public.organizations where slug = 'al-noor-typing-centre';
-  if target_organization_id is null then raise exception 'Al Noor QA tenant was not found'; end if;
+  select id into target_organization_id from public.organizations where slug = 'note-it-demo';
+  if target_organization_id is null then raise exception 'dedicated Note It demo tenant was not found'; end if;
   select user_id into strict target_owner_id from public.organization_memberships
     where organization_id = target_organization_id and is_primary_owner and status = 'active';
   perform set_config('request.jwt.claim.sub', target_owner_id::text, true);
@@ -56,25 +56,28 @@ begin
   insert into public.customers (organization_id, company_id, full_name, email, phone, nationality, notes)
   select target_organization_id,
     (select id from public.companies where organization_id = target_organization_id and licence_number = demo.company_licence),
-    demo.full_name, lower(replace(demo.full_name, ' ', '.')) || '@demo.renewtrack.invalid', demo.phone, demo.nationality, 'Hosted QA demo record'
+    demo.full_name, lower(replace(demo.full_name, ' ', '.')) || '@demo.renewtrack.invalid', demo.phone, demo.nationality, 'Public Note It demo record'
   from demo
   where not exists (select 1 from public.customers c where c.organization_id = target_organization_id and c.email = lower(replace(demo.full_name, ' ', '.')) || '@demo.renewtrack.invalid');
 
-  insert into public.documents (organization_id, document_type_id, customer_id, document_number, issued_on, expires_on, status, notes)
+  insert into public.documents (organization_id, document_type_id, customer_id, display_name, document_number, issued_on, expires_on, status, notes)
   select target_organization_id,
     (select id from public.organization_document_types where organization_id = target_organization_id and name = case ((n - 1) % 8)
       when 0 then 'Emirates ID' when 1 then 'Passport' when 2 then 'Trade Licence' when 3 then 'Establishment Card'
       when 4 then 'Residence Visa' when 5 then 'Labour Card' when 6 then 'Medical Insurance' else 'Tenancy Contract / Ejari' end),
     (select id from public.customers where organization_id = target_organization_id and email like '%@demo.renewtrack.invalid' order by email offset ((n - 1) % 15) limit 1),
+    case ((n - 1) % 8)
+      when 0 then 'Emirates ID' when 1 then 'Passport' when 2 then 'Trade Licence' when 3 then 'Establishment Card'
+      when 4 then 'Residence Visa' when 5 then 'Labour Card' when 6 then 'Medical Insurance' else 'Tenancy Contract / Ejari' end,
     'QA-DEMO-DOC-' || lpad(n::text, 3, '0'), current_date - interval '1 year',
     case when n <= 5 then current_date - n when n = 6 then current_date when n <= 11 then current_date + (n - 6) when n <= 21 then current_date + (n - 3) else current_date + (n + 45) end,
     case when n >= 33 then 'renewal_in_progress'::public.document_status when n <= 5 then 'expired'::public.document_status when n <= 11 then 'urgent'::public.document_status else 'valid'::public.document_status end,
-    'Hosted QA demo record'
+    'Public Note It demo record'
   from generate_series(1, 36) as n
   where not exists (select 1 from public.documents d where d.organization_id = target_organization_id and d.document_number = 'QA-DEMO-DOC-' || lpad(n::text, 3, '0'));
 
   insert into public.renewals (organization_id, document_id, status, started_at, notes)
-  select target_organization_id, id, case when document_number = 'QA-DEMO-DOC-035' then 'submitted'::public.renewal_status else 'in_progress'::public.renewal_status end, timezone('utc', now()), 'Hosted QA demo renewal'
+  select target_organization_id, id, case when document_number = 'QA-DEMO-DOC-035' then 'submitted'::public.renewal_status else 'in_progress'::public.renewal_status end, timezone('utc', now()), 'Public Note It demo renewal'
   from public.documents d where d.organization_id = target_organization_id and d.document_number in ('QA-DEMO-DOC-033','QA-DEMO-DOC-034','QA-DEMO-DOC-035','QA-DEMO-DOC-036')
     and not exists (select 1 from public.renewals r where r.organization_id = target_organization_id and r.document_id = d.id);
 

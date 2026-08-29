@@ -7,7 +7,9 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const rawNext = (await searchParams).next;
+  const params = await searchParams;
+  const rawNext = params.next;
+  const demoUnavailable = params.demo === "unavailable";
   const next = safeNext(typeof rawNext === "string" ? rawNext : undefined);
 
   return (
@@ -19,6 +21,7 @@ export default async function LoginPage({
           <h1 id="login-title">Welcome to Note It</h1>
           <span>Stay ahead of document expiries, renewals and follow-ups.</span>
         </div>
+        {demoUnavailable && <p className="auth-error" role="alert">The demo is temporarily unavailable. Please try again shortly.</p>}
         <LoginForm next={next} />
       </section>
     </main>

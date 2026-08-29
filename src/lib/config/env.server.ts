@@ -3,6 +3,8 @@ import { z } from "zod";
 
 const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  DEMO_EMAIL: z.string().email().optional(),
+  DEMO_PASSWORD: z.string().min(12).optional(),
   DEMO_USER_EMAIL: z.string().email().optional(),
   DEMO_USER_PASSWORD: z.string().min(12).optional(),
   DEMO_ORGANIZATION_SLUG: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
@@ -31,6 +33,8 @@ const serverSchema = z.object({
 export function getServerEnv() {
   return serverSchema.parse({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    DEMO_EMAIL: process.env.DEMO_EMAIL,
+    DEMO_PASSWORD: process.env.DEMO_PASSWORD,
     DEMO_USER_EMAIL: process.env.DEMO_USER_EMAIL,
     DEMO_USER_PASSWORD: process.env.DEMO_USER_PASSWORD,
     DEMO_ORGANIZATION_SLUG: process.env.DEMO_ORGANIZATION_SLUG,

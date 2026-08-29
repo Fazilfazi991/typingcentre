@@ -1,35 +1,49 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSupabaseServerClient, getDemoCredentials, redirect, signInWithPassword } = vi.hoisted(() => {
-  const signInWithPassword = vi.fn();
-  return {
-    getSupabaseServerClient: vi.fn().mockResolvedValue({ auth: { signInWithPassword } }),
-    getDemoCredentials: vi.fn(),
-    redirect: vi.fn((path: string) => { throw new Error(`REDIRECT:${path}`); }),
-    signInWithPassword,
-  };
-});
+const { createServerClient, getDemoCredentials, getUser, signInWithPassword } = vi.hoisted(() => ({
+  createServerClient: vi.fn(),
+  getDemoCredentials: vi.fn(),
+  getUser: vi.fn(),
+  signInWithPassword: vi.fn(),
+}));
 
-vi.mock("@/lib/supabase/server", () => ({ getSupabaseServerClient }));
+vi.mock("@supabase/ssr", () => ({ createServerClient }));
 vi.mock("@/lib/demo/workspace", () => ({ getDemoCredentials }));
-vi.mock("next/navigation", () => ({ redirect }));
-vi.mock("@/lib/auth/destination", () => ({ resolveAuthDestination: vi.fn().mockResolvedValue("/dashboard") }));
+vi.mock("@/lib/config/env.public", () => ({
+  hasSupabaseConfiguration: true,
+  publicEnv: { NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co" },
+  supabasePublicKey: "publishable-key",
+}));
 
-import { demoLoginAction } from "@/app/(auth)/demo-actions";
+import { NextRequest } from "next/server";
+import { GET } from "@/app/demo/route";
 
-describe("demo login", () => {
-  it("authenticates only with server-provided credentials and always opens the dashboard", async () => {
-    getDemoCredentials.mockReturnValue({ email: "demo@example.test", password: "not-in-the-browser" });
+describe("GET /demo", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createServerClient.mockReturnValue({ auth: { getUser, signInWithPassword } });
+    getUser.mockResolvedValue({ data: { user: null } });
+    getDemoCredentials.mockReturnValue({ email: "demo@example.test", password: "server-only" });
     signInWithPassword.mockResolvedValue({ error: null });
-
-    await expect(demoLoginAction({}, new FormData())).rejects.toThrow("REDIRECT:/dashboard");
-    expect(signInWithPassword).toHaveBeenCalledWith({ email: "demo@example.test", password: "not-in-the-browser" });
   });
 
-  it("returns a generic error without attempting auth when demo configuration is absent", async () => {
+  it("signs a logged-out visitor in with server-only credentials", async () => {
+    const response = await GET(new NextRequest("https://note-it.test/demo"));
+    expect(signInWithPassword).toHaveBeenCalledWith({ email: "demo@example.test", password: "server-only" });
+    expect(response.headers.get("location")).toBe("https://note-it.test/dashboard");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("does not replace an existing authenticated session", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "real-user" } } });
+    const response = await GET(new NextRequest("https://note-it.test/demo"));
+    expect(signInWithPassword).not.toHaveBeenCalled();
+    expect(response.headers.get("location")).toBe("https://note-it.test/dashboard");
+  });
+
+  it("shows an intentional unavailable state when credentials are absent", async () => {
     getDemoCredentials.mockReturnValue(null);
-    await expect(demoLoginAction({}, new FormData())).resolves.toEqual({
-      error: "Demo is temporarily unavailable. Please try again.",
-    });
+    const response = await GET(new NextRequest("https://note-it.test/demo"));
+    expect(response.headers.get("location")).toBe("https://note-it.test/login?demo=unavailable");
   });
 });

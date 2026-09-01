@@ -378,7 +378,7 @@ export async function createFollowUpAction(formData: FormData) {
     .insert({
       organization_id: context.organization.id,
       customer_id: customerId, company_id: companyId, created_by: context.user.id,
-      due_at: dubaiDateTimeToUtcISOString(parsed.data.dueAt),
+      due_at: parsed.data.dueAt,
       note: emptyToNull(parsed.data.note),
     })
     .select("id")
@@ -400,7 +400,7 @@ export async function updateFollowUpAction(formData: FormData) {
   const value = parsed.data;
   const customerId = emptyToNull(value.customerId); const companyId = emptyToNull(value.companyId); const relationshipError = await validateFollowUpRelationships(context, customerId, companyId);
   if (relationshipError) redirect(withResult(returnTo, `error=${encodeURIComponent(relationshipError)}`) as never);
-  const { data, error } = await context.supabase.from("follow_ups").update({ customer_id: customerId, company_id: companyId, due_at: dubaiDateTimeToUtcISOString(value.dueAt), note: emptyToNull(value.note) }).eq("id", value.followUpId).eq("organization_id", context.organization.id).neq("status", "completed").select("id").maybeSingle();
+  const { data, error } = await context.supabase.from("follow_ups").update({ customer_id: customerId, company_id: companyId, due_at: value.dueAt, note: emptyToNull(value.note) }).eq("id", value.followUpId).eq("organization_id", context.organization.id).neq("status", "completed").select("id").maybeSingle();
   if (error || !data) redirect(withResult(returnTo, `error=${encodeURIComponent(safeDatabaseError(error))}`) as never);
   await log(context, "follow_up_updated", "follow_up", data.id);
   revalidatePath("/dashboard"); revalidatePath("/follow-ups"); if (customerId) revalidatePath(`/customers/${customerId}`); if (companyId) revalidatePath(`/companies/${companyId}`);

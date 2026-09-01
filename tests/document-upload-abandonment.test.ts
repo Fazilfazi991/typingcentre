@@ -8,12 +8,18 @@ const migration = fs.readFileSync(
 );
 const actions = fs.readFileSync(path.join(process.cwd(), "src/features/documents/actions.ts"), "utf8");
 const form = fs.readFileSync(path.join(process.cwd(), "src/features/documents/smart-upload-form.tsx"), "utf8");
+const permissions = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/20260901210000_reconcile_abandon_document_upload_permissions.sql"),
+  "utf8",
+);
 
 describe("failed document upload abandonment", () => {
   it("allows only an authenticated owner to abandon a non-complete version", () => {
     expect(migration).toMatch(/user_id = \(select auth\.uid\(\)\)[\s\S]*role = 'owner'[\s\S]*status = 'active'/);
     expect(migration).toContain("if target.upload_status = 'complete'");
     expect(migration).toContain("grant execute on function public.abandon_document_upload(uuid) to authenticated");
+    expect(permissions).toContain("revoke all on function public.abandon_document_upload(uuid) from anon");
+    expect(permissions).toContain("revoke all on function public.abandon_document_upload(uuid) from service_role");
   });
 
   it("removes the parent only when it has no finalized or remaining versions", () => {

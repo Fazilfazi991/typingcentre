@@ -4611,11 +4611,12 @@ th {
 @media (max-width: 760px) {
   html { scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   body.mobile-menu-open { overflow: hidden; }
+  .app-shell { grid-template-columns: minmax(0, 1fr); width: 100%; }
   .app-shell > .sidebar { display: none; }
-  .app-stage { min-width: 0; }
+  .app-stage { width: 100%; min-width: 0; }
   .app-stage > .topbar { position: sticky; top: 0; z-index: 40; display: grid; grid-template-columns: minmax(0,1fr) auto; min-height: 0; gap: 8px 10px; padding: calc(7px + env(safe-area-inset-top)) 14px 9px; background: rgba(255,255,255,.98); }
-  .mobile-topbar-brand { display: flex; align-items: center; width: 92px; min-height: 44px; }
-  .mobile-topbar-brand svg { display: block; width: 92px; height: auto; }
+  .mobile-topbar-brand { display: flex; align-items: center; width: 132px; min-height: 44px; }
+  .mobile-topbar-brand img { display: block; width: 132px; max-width: 100%; height: auto; }
   .app-stage > .topbar .global-search { grid-column: 1/-1; grid-row: 2; order: initial; width: 100%; height: 46px; padding-left: 14px; border-radius: 12px; }
   .app-stage > .topbar .global-search input { font-size: 16px; }
   .app-stage > .topbar .global-search button { width: 44px; height: 44px; right: 1px; }

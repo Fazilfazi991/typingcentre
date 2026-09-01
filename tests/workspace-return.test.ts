@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { getSupabaseServerClient, redirect } = vi.hoisted(() => ({
-  getSupabaseServerClient: vi.fn().mockResolvedValue({
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null } }) },
-  }),
-  redirect: vi.fn((path: string) => { throw new Error(`REDIRECT:${path}`); }),
-}));
+const { getClaims, getSupabaseServerClient, redirect } = vi.hoisted(() => {
+  const getClaims = vi.fn().mockResolvedValue({ data: null });
+  return {
+    getClaims,
+    getSupabaseServerClient: vi.fn().mockResolvedValue({ auth: { getClaims } }),
+    redirect: vi.fn((path: string) => { throw new Error(`REDIRECT:${path}`); }),
+  };
+});
 
 vi.mock("@/lib/supabase/server", () => ({ getSupabaseServerClient }));
 vi.mock("next/navigation", () => ({ redirect }));
@@ -17,5 +19,6 @@ describe("unauthenticated workspace return", () => {
     await expect(getWorkspaceContext("/renewals?range=30d")).rejects.toThrow(
       "REDIRECT:/login?next=%2Frenewals%3Frange%3D30d",
     );
+    expect(getClaims).toHaveBeenCalledOnce();
   });
 });

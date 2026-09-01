@@ -18,12 +18,14 @@ export const getWorkspaceContext = cache(async (returnTo?: string): Promise<Work
   noStore();
   const supabase = await getSupabaseServerClient();
   if (!supabase) return null;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect((returnTo ? loginPathFor(returnTo) : "/login") as never);
+  const { data: verifiedToken } = await supabase.auth.getClaims();
+  const claims = verifiedToken?.claims;
+  const userId = typeof claims?.sub === "string" ? claims.sub : null;
+  if (!userId) redirect((returnTo ? loginPathFor(returnTo) : "/login") as never);
 
   const [{ data: profile }, { data: membership }] = await Promise.all([
-    supabase.from("profiles").select("id, full_name, platform_role, status").eq("id", user.id).maybeSingle(),
-    supabase.from("organization_memberships").select("organization_id, role, status, is_primary_owner").eq("user_id", user.id).eq("status", "active").order("is_primary_owner", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("profiles").select("id, full_name, platform_role, status").eq("id", userId).maybeSingle(),
+    supabase.from("organization_memberships").select("organization_id, role, status, is_primary_owner").eq("user_id", userId).eq("status", "active").order("is_primary_owner", { ascending: false }).limit(1).maybeSingle(),
   ]);
   if (!profile || profile.status !== "active" || profile.platform_role === "platform_admin") redirect("/account-inactive" as never);
 
@@ -35,5 +37,12 @@ export const getWorkspaceContext = cache(async (returnTo?: string): Promise<Work
   ]);
   if (!organization || !subscription) redirect("/account-inactive" as never);
 
-  return { supabase, user: { id: user.id, email: user.email }, profile, membership, organization, subscription };
+  return {
+    supabase,
+    user: { id: userId, email: typeof claims?.email === "string" ? claims.email : undefined },
+    profile,
+    membership,
+    organization,
+    subscription,
+  };
 });

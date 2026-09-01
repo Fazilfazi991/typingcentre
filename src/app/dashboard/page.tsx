@@ -2,11 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { completeFollowUpAction } from "@/features/crm/actions";
-import { calculateDaysRemaining, formatDisplayDate, getRelativeExpiryText, renewalRangePath } from "@/lib/dates/expiry";
-import { activityPresentation, calculatePortfolioInsights, formatActivityTime, HEALTH_PRESENTATION, percentage } from "@/lib/dashboard/insights";
-import { applyFollowUpDateFilter, followUpDatePath } from "@/lib/follow-ups/filters";
-import { isRelevantExpiryRecord, RENEWAL_RECORD_SELECT } from "@/lib/renewals/records";
+import { calculateDaysRemaining, expiryBoundaries, formatDisplayDate, getRelativeExpiryText, renewalRangePath } from "@/lib/dates/expiry";
+import { activityPresentation, formatActivityTime, HEALTH_PRESENTATION, percentage } from "@/lib/dashboard/insights";
+import { followUpDatePath, followUpTodayBounds } from "@/lib/follow-ups/filters";
 import { renewalDetailPath } from "@/lib/renewals/workflow";
+import { measureAsync } from "@/lib/performance/timing";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 
 export const dynamic = "force-dynamic";
@@ -51,36 +51,32 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   if (!context) redirect("/account-inactive" as never);
 
   const now = new Date();
-  const todayFollowUps = <T extends { gte: Function; lt: Function; neq: Function }>(query: T) =>
-    applyFollowUpDateFilter(query, "today", now, context.organization.timezone);
-
-  const [portfolioResult, followUpResult, todaysFollowUpsResult, activityResult] = await Promise.all([
-    context.supabase.from("documents").select(RENEWAL_RECORD_SELECT).eq("organization_id", context.organization.id).is("archived_at", null).order("expires_on").limit(500),
-    todayFollowUps(context.supabase.from("follow_ups").select("id", { count: "exact", head: true }).eq("organization_id", context.organization.id)),
-    todayFollowUps(context.supabase.from("follow_ups").select("id,due_at,status,note,customer_id,company_id,customers(full_name),companies(name)").eq("organization_id", context.organization.id)).order("due_at").limit(5),
-    context.supabase.from("activity_logs").select("id,entity_type,message,created_at").eq("organization_id", context.organization.id).order("created_at", { ascending: false }).limit(showAllActivity ? 20 : 5),
-  ]);
-
-  if (portfolioResult.error) throw portfolioResult.error;
-  if (followUpResult.error) throw followUpResult.error;
-  if (todaysFollowUpsResult.error) throw todaysFollowUpsResult.error;
-
-  const portfolio = (portfolioResult.data ?? []).filter(isRelevantExpiryRecord);
+  const followUpBounds = followUpTodayBounds(now, context.organization.timezone);
+  const { today } = expiryBoundaries(now, context.organization.timezone);
+  const { data: snapshot, error: snapshotError } = await measureAsync("dashboard_query", () => context.supabase.rpc("dashboard_snapshot", {
+    target_organization_id: context.organization.id,
+    target_today: today,
+    follow_up_start: followUpBounds.start,
+    follow_up_end: followUpBounds.end,
+    activity_limit: showAllActivity ? 20 : 5,
+  }));
+  if (snapshotError) throw snapshotError;
+  const payload = (snapshot ?? {}) as any;
+  const metrics = payload.metrics ?? {};
   const daysFor = (record: any) => calculateDaysRemaining(record.expires_on, now, context.organization.timezone);
-  const upcoming = portfolio.filter((record: any) => { const days = daysFor(record); return days !== undefined && days >= 0 && days <= 30; });
-  const todayCount = upcoming.filter((record: any) => daysFor(record) === 0).length;
-  const week = upcoming.filter((record) => (calculateDaysRemaining(record.expires_on, now, context.organization.timezone) ?? 31) <= 7).length;
-  const month = upcoming.length - week;
-  const followUps = followUpResult.count ?? 0;
-  const attention = portfolio.filter((record: any) => (daysFor(record) ?? 31) < 8).slice(0, 8);
-  const todaysFollowUps = todaysFollowUpsResult.data ?? [];
+  const todayCount = Number(metrics.today ?? 0);
+  const week = Number(metrics.week ?? 0);
+  const month = Number(metrics.days0To30 ?? 0) - week;
+  const followUps = Number(payload.followUps?.count ?? 0);
+  const attention = payload.attention ?? [];
+  const todaysFollowUps = payload.followUps?.items ?? [];
   const cards = [
     ["Expiring today", todayCount, "alert", "danger", "Requires action today", "View today", renewalRangePath("today"), `View ${todayCount} documents expiring today`],
     ["Expiring in 7 days", week, "clock", "warning", "Contact customers soon", "View next 7 days", renewalRangePath("7d"), `View ${week} documents expiring within 7 days`],
     ["Expiring in 30 days", week + month, "calendar", "info", "Upcoming renewals", "View next 30 days", renewalRangePath("30d"), `View ${week + month} documents expiring within 30 days`],
     ["Follow-ups today", followUps, "checklist", "purple", "Scheduled today", "View follow-ups", followUpDatePath("today"), `View ${followUps} follow-ups scheduled today`],
   ] as const;
-  const insights = calculatePortfolioInsights(portfolio, now, context.organization.timezone);
+  const insights = { total: Number(metrics.total ?? 0), health: { valid: Number(metrics.valid ?? 0), expiringSoon: Number(metrics.expiringSoon ?? 0), expired: Number(metrics.expired ?? 0), renewalInProgress: Number(metrics.renewalInProgress ?? 0) }, upcoming: { days0To30: Number(metrics.days0To30 ?? 0), days31To60: Number(metrics.days31To60 ?? 0), days61To90: Number(metrics.days61To90 ?? 0) }, upcomingTotal: Number(metrics.days0To30 ?? 0) + Number(metrics.days31To60 ?? 0) + Number(metrics.days61To90 ?? 0) };
   const health = HEALTH_PRESENTATION.map((item) => ({ ...item, value: insights.health[item.key], percent: percentage(insights.health[item.key], insights.total) }));
   const expirationBuckets = [
     { label: "0–30 days", value: insights.upcoming.days0To30 },
@@ -103,7 +99,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       </article>
       <article className="insight-card recent-activity-card" id="recent-activity">
         <header className="insight-card-header"><div><h2>Recent Activity</h2><p>Latest changes in this workspace</p></div><Link className="insight-action" href={showAllActivity ? "/dashboard#recent-activity" : "/dashboard?activity=all#recent-activity"}>{showAllActivity ? "Show Latest 5" : "View All Activity"}<span aria-hidden>→</span></Link></header>
-        {activityResult.data?.length ? <div className="recent-activity-list">{activityResult.data.map((entry: any) => { const presentation = activityPresentation(entry.entity_type, entry.message); return <article className={`recent-activity-row activity-${presentation.tone}`} key={entry.id}><span className="recent-activity-icon" aria-hidden><InsightGlyph name={presentation.icon}/></span><p>{entry.message}</p><time><InsightGlyph name="clock"/>{formatActivityTime(entry.created_at, now, context.organization.timezone)}</time></article>; })}</div> : <div className="dashboard-empty compact"><span aria-hidden>RT</span><b>No recent activity</b><p>Workspace updates will appear here.</p></div>}
+        {payload.activity?.length ? <div className="recent-activity-list">{payload.activity.map((entry: any) => { const presentation = activityPresentation(entry.entity_type, entry.message); return <article className={`recent-activity-row activity-${presentation.tone}`} key={entry.id}><span className="recent-activity-icon" aria-hidden><InsightGlyph name={presentation.icon}/></span><p>{entry.message}</p><time><InsightGlyph name="clock"/>{formatActivityTime(entry.created_at, now, context.organization.timezone)}</time></article>; })}</div> : <div className="dashboard-empty compact"><span aria-hidden>RT</span><b>No recent activity</b><p>Workspace updates will appear here.</p></div>}
       </article>
     </section>
   </WorkspaceShell>;

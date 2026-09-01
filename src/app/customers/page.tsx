@@ -7,6 +7,7 @@ import { archiveCustomerAction } from "@/features/crm/actions";
 import { customerDetailPath, customerEditPath } from "@/features/crm/customer-utils";
 import { formatDisplayDate, getRelativeExpiryText } from "@/lib/dates/expiry";
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { measureAsync } from "@/lib/performance/timing";
 import { listParams } from "@/lib/workspace/utils";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +22,10 @@ type CustomerRow = {
   emirates_id_number: string | null;
   companies: { name: string } | { name: string }[] | null;
   branches: { name: string } | { name: string }[] | null;
+  document_count: number;
+  next_expiry_date: string | null;
+  next_document_type: string | null;
 };
-
-type CustomerDocument = { customer_id: string; expires_on: string | null; document_number: string | null; organization_document_types: { name: string } | { name: string }[] | null };
 
 function relationName(value: { name: string } | { name: string }[] | null) {
   return Array.isArray(value) ? (value[0]?.name ?? "") : (value?.name ?? "");
@@ -57,30 +59,17 @@ export default async function Customers({
   if (!context) redirect("/account-inactive" as never);
 
   const params = listParams(await searchParams, ["updated_at", "full_name"]);
-  let query = context.supabase
-    .from("customers")
-    .select(
-      "id,full_name,customer_type,nationality,phone,passport_number,emirates_id_number,updated_at,companies(name),branches(name)",
-      { count: "exact" },
-    )
-    .eq("organization_id", context.organization.id)
-    .is("archived_at", null)
-    .order(params.sort, { ascending: params.direction === "asc" });
-
-  if (params.search.length >= 2) {
-    query = query.or(
-      `full_name.ilike.%${params.search}%,phone.ilike.%${params.search}%,passport_number.ilike.%${params.search}%,emirates_id_number.ilike.%${params.search}%`,
-    );
-  }
-
-  const { data, count } = await query.range((params.page - 1) * params.pageSize, params.page * params.pageSize - 1);
-  const customers = (data ?? []) as CustomerRow[];
-  const { data: documentRows } = customers.length ? await context.supabase.from("documents").select("customer_id,expires_on,document_number,organization_document_types(name)").eq("organization_id", context.organization.id).is("archived_at", null).in("customer_id", customers.map((customer) => customer.id)).order("expires_on") : { data: [] };
-  const documentsByCustomer = new Map<string, CustomerDocument[]>();
-  for (const document of (documentRows ?? []) as CustomerDocument[]) {
-    if (!document.customer_id) continue;
-    documentsByCustomer.set(document.customer_id, [...(documentsByCustomer.get(document.customer_id) ?? []), document]);
-  }
+  const { data: summary, error } = await measureAsync("customer_list_query", () => context.supabase.rpc("customer_list_summary", {
+    target_organization_id: context.organization.id,
+    search_text: params.search,
+    sort_column: params.sort,
+    sort_ascending: params.direction === "asc",
+    page_offset: (params.page - 1) * params.pageSize,
+    page_limit: params.pageSize,
+  }));
+  if (error) throw error;
+  const customers = ((summary as any)?.rows ?? []) as CustomerRow[];
+  const count = Number((summary as any)?.count ?? 0);
 
   return (
     <WorkspaceShell organizationName={context.organization.name}>
@@ -117,7 +106,7 @@ export default async function Customers({
               </thead>
               <tbody>
                 {customers.map((customer) => (
-                  <tr key={customer.id}>{(() => { const documents = documentsByCustomer.get(customer.id) ?? []; const next = documents.find((document) => document.expires_on); const type = next ? relationName(next.organization_document_types) : ""; return <>
+                  <tr key={customer.id}>{(() => { const documents = Number(customer.document_count ?? 0); const next = customer.next_expiry_date; const type = customer.next_document_type ?? ""; return <>
                     <td>
                       <Link href={customerDetailPath(customer.id)}>
                         <b>{customer.full_name}</b>
@@ -131,8 +120,8 @@ export default async function Customers({
                       <small>{relationName(customer.branches)}</small>
                     </td>
                     <td>{customer.phone}</td>
-                    <td>{documents.length ? `${documents.length} document${documents.length === 1 ? "" : "s"}` : "No documents"}</td>
-                    <td>{next?.expires_on ? <><b>{type || "Document"}</b><small>{formatDisplayDate(next.expires_on)} · {getRelativeExpiryText(next.expires_on)}</small></> : "No expiry recorded"}</td>
+                    <td>{documents ? `${documents} document${documents === 1 ? "" : "s"}` : "No documents"}</td>
+                    <td>{next ? <><b>{type || "Document"}</b><small>{formatDisplayDate(next)} · {getRelativeExpiryText(next)}</small></> : "No expiry recorded"}</td>
                     <td>
                       <CustomerActions customer={customer} />
                     </td>
@@ -142,7 +131,7 @@ export default async function Customers({
             </table>
             <div className="mobile-card-list">
                 {customers.map((customer) => (
-                <article className="mobile-record-card" key={customer.id}>{(() => { const documents = documentsByCustomer.get(customer.id) ?? []; const next = documents.find((document) => document.expires_on); const type = next ? relationName(next.organization_document_types) : ""; return <>
+                <article className="mobile-record-card" key={customer.id}>{(() => { const documents = Number(customer.document_count ?? 0); const next = customer.next_expiry_date; const type = customer.next_document_type ?? ""; return <>
                   <div>
                     <Link href={customerDetailPath(customer.id)}>
                       <b>{customer.full_name}</b>
@@ -154,11 +143,11 @@ export default async function Customers({
                   <dl>
                     <div>
                       <dt>Documents</dt>
-                      <dd>{documents.length || "No"} {documents.length === 1 ? "document" : "documents"}</dd>
+                      <dd>{documents || "No"} {documents === 1 ? "document" : "documents"}</dd>
                     </div>
                     <div>
                       <dt>Next expiry</dt>
-                      <dd>{next?.expires_on ? `${type || "Document"} · ${getRelativeExpiryText(next.expires_on)}` : "No expiry recorded"}</dd>
+                      <dd>{next ? `${type || "Document"} · ${getRelativeExpiryText(next)}` : "No expiry recorded"}</dd>
                     </div>
                   </dl>
                   <CustomerActions customer={customer} />

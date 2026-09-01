@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { parseSupabaseSessionHash } from "@/lib/auth/url-session";
 import { resetPasswordAction } from "../actions";
 
@@ -21,6 +20,7 @@ export default function ResetPassword() {
       // Remove credentials and auth errors from the visible URL immediately.
       if (hash) window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
 
+      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
       const supabase = getSupabaseBrowserClient();
       if (!supabase) {
         if (active) setRecoveryState("invalid");

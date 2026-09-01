@@ -3,8 +3,11 @@ import { documentExtractionJsonSchema, documentExtractionSchema } from "./schema
 import { DOCUMENT_EXTRACTION_INSTRUCTION } from "./prompts";
 import { CANONICAL_DOCUMENT_CODES, canonicalDocumentClassificationSchema, canonicalDocumentCodeSchema } from "./canonical-taxonomy";
 import type { DocumentExtractionProvider, ExtractDocumentInput } from "./types";
+import { measureAsync } from "@/lib/performance/timing";
 
 const DEFAULT_MODEL = "gemini-3.1-flash-lite";
+const PROVIDER_TIMEOUT_MS = 60_000;
+const inlineBase64 = (bytes: Uint8Array) => Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64");
 
 type ClassificationLogOutcome = "provider_invoked" | "provider_error" | "schema_invalid" | "unresolved" | "unsupported_code" | "canonical_resolved" | "tenant_mapping_missing" | "tenant_mapping_duplicate";
 
@@ -19,10 +22,11 @@ export class GeminiDocumentExtractor implements DocumentExtractionProvider {
     const key = process.env.GEMINI_API_KEY?.trim();
     if (!key) throw new Error("Document AI is not configured.");
     const model = process.env.GEMINI_DOCUMENT_MODEL?.trim() || DEFAULT_MODEL;
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
+    const response = await measureAsync("gemini_extract", () => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
       method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store",
-      body: JSON.stringify({ contents: [{ role: "user", parts: [{ inlineData: { mimeType: input.mimeType, data: Buffer.from(input.bytes).toString("base64") }, }, { text: DOCUMENT_EXTRACTION_INSTRUCTION }]}], generationConfig: { responseMimeType: "application/json", responseJsonSchema: documentExtractionJsonSchema, temperature: 0 } }),
-    });
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ inlineData: { mimeType: input.mimeType, data: inlineBase64(input.bytes) }, }, { text: DOCUMENT_EXTRACTION_INSTRUCTION }]}], generationConfig: { responseMimeType: "application/json", responseJsonSchema: documentExtractionJsonSchema, temperature: 0 } }),
+    }));
     if (!response.ok) throw new Error("Document analysis is unavailable.");
     const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
     const text = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("");
@@ -42,6 +46,7 @@ export class GeminiDocumentExtractor implements DocumentExtractionProvider {
       logClassificationOutcome("provider_invoked");
       response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store",
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
         body: JSON.stringify({ contents: [{ role: "user", parts: [{ inlineData: { mimeType: input.mimeType, data: Buffer.from(input.bytes).toString("base64") } }, { text: `Classify this document's format/category only. A SAMPLE, TEST, SPECIMEN, VOID, NOT VALID, or fictional-data marking does not make the category unresolved; do not assess authenticity. Return JSON {"canonicalCode": string|null}. Allowed codes: ${CANONICAL_DOCUMENT_CODES.join(", ")}. Return null when evidence is insufficient; never guess visa or insurance subtypes.` }] }], generationConfig: { responseMimeType: "application/json", responseJsonSchema: { type: "object", additionalProperties: false, properties: { canonicalCode: { type: ["string", "null"], enum: [...CANONICAL_DOCUMENT_CODES, null] } }, required: ["canonicalCode"] }, temperature: 0 } }),
       });
     } catch {

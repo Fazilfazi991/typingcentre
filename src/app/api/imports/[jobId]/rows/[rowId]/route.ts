@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { normalizePhone, parseImportDate } from "@/lib/imports/parser";
+import { isDemoContext } from "@/lib/demo/guard";
 
 const fields = ["customer_name", "company_name", "customer_phone", "customer_email", "document_type", "document_number", "issue_date", "expiry_date", "notes"] as const;
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ jobId: string; rowId: string }> }) {
   const context = await getWorkspaceContext("/imports/new");
   if (!context || !["owner", "admin"].includes(context.membership.role)) return NextResponse.json({ error: "You are not allowed to edit this import." }, { status: 403 });
+  if (isDemoContext(context)) return NextResponse.json({ error: "Data import is disabled in Demo Mode." }, { status: 403 });
   const { jobId, rowId } = await params; const body = await request.json() as Record<string, unknown>;
   const { data: row } = await context.supabase.from("import_job_rows").select("id,normalized_data").eq("id", rowId).eq("import_job_id", jobId).eq("organization_id", context.organization.id).maybeSingle();
   if (!row) return NextResponse.json({ error: "Import row not found." }, { status: 404 });

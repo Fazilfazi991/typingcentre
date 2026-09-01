@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { normalizePhone, parseImportDate } from "@/lib/imports/parser";
+import { isDemoContext } from "@/lib/demo/guard";
 
 type Mapping = Record<string, string>;
 const get = (source: Record<string, unknown>, mapping: Mapping, field: string) => String(source[Object.keys(mapping).find((header) => mapping[header] === field) ?? ""] ?? "").trim();
@@ -15,6 +16,7 @@ const inferredDocumentType = (mapping: Mapping) => {
 
 export async function POST(request: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const context = await getWorkspaceContext("/imports/new");
+  if (context && isDemoContext(context)) return NextResponse.json({ error: "Data import is disabled in Demo Mode." }, { status: 403 });
   if (!context || !["owner", "admin"].includes(context.membership.role)) return NextResponse.json({ error: "You are not allowed to import data." }, { status: 403 });
   const { jobId } = await params; const { mapping, sheetName } = await request.json() as { mapping: Mapping; sheetName: string };
   if (!mapping || !sheetName) return NextResponse.json({ error: "Choose a sheet and map the columns first." }, { status: 400 });

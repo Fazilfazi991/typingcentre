@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { isDemoContext } from "@/lib/demo/guard";
 
 const BATCH_SIZE = 100;
 
 export async function POST(_: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const context = await getWorkspaceContext("/imports/new");
   if (!context || !["owner", "admin"].includes(context.membership.role)) return NextResponse.json({ error: "You are not allowed to execute an import." }, { status: 403 });
+  if (isDemoContext(context)) return NextResponse.json({ error: "Data import is disabled in Demo Mode." }, { status: 403 });
   const { jobId } = await params;
   const { data: job } = await context.supabase.from("import_jobs").select("id,status,processed_rows,customers_created,companies_created,documents_created,records_updated,records_skipped,records_failed").eq("id", jobId).eq("organization_id", context.organization.id).maybeSingle();
   if (!job || !["ready", "importing"].includes(job.status)) return NextResponse.json({ error: "Validate the import before starting it." }, { status: 409 });

@@ -1,12 +1,13 @@
 "use client";
 
+import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { abandonDocumentUpload, confirmDocumentExtraction, createDocumentUploadSession, extractUploadedDocument, finalizeDocumentUpload } from "./actions";
 import type { DocumentExtraction } from "@/lib/document-ai/types";
 
 type TypeOption = { id: string; name: string };
-type Props = { documentId?: string; customerId?: string; companyId?: string; customerName?: string; companyName?: string; documentTypes: TypeOption[] };
+type Props = { documentId?: string; customerId?: string; companyId?: string; customerName?: string; companyName?: string; documentTypes: TypeOption[]; uploadDisabledReason?: string };
 const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 const uploadTimeoutMs = 30_000;
 
@@ -25,7 +26,7 @@ export async function uploadDocumentBinary(uploadUrl: string, contentType: strin
   }
 }
 
-export function SmartUploadForm({ documentId: existingDocumentId, customerId, companyId, customerName, companyName, documentTypes }: Props) {
+export function SmartUploadForm({ documentId: existingDocumentId, customerId, companyId, customerName, companyName, documentTypes, uploadDisabledReason }: Props) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [documentTypeId, setDocumentTypeId] = useState(documentTypes[0]?.id ?? "");
@@ -37,6 +38,7 @@ export function SmartUploadForm({ documentId: existingDocumentId, customerId, co
   const [form, setForm] = useState<Record<string, string>>({});
   const [additional, setAdditional] = useState<Array<{ key: string; value: string }>>([]);
   const fileInput = useRef<HTMLInputElement>(null);
+  const starting = useRef(false);
   const contextName = customerName || companyName || "selected record";
   const canStart = file && documentTypeId && allowed.includes(file.type) && file.size <= 10 * 1024 * 1024;
   const additionalFields = useMemo(() => additional, [additional]);
@@ -48,10 +50,12 @@ export function SmartUploadForm({ documentId: existingDocumentId, customerId, co
     setAdditional(Object.entries(data.additional_fields).map(([key, value]) => ({ key, value: typeof value === "string" ? value : JSON.stringify(value) })));
   }
   async function begin() {
+    if (starting.current || uploadDisabledReason) return;
     if (!file || !canStart) { setMessage("Choose a PDF, JPEG, PNG, or WebP file up to 10 MB."); return; }
+    starting.current = true;
     setMessage(""); setStage("uploading");
     const started = await createDocumentUploadSession({ documentId: existingDocumentId ?? "", documentTypeId, customerId: customerId ?? "", companyId: companyId ?? "", displayName: file.name.replace(/\.[^.]+$/, "") || "Uploaded document", documentNumber: "", issueDate: "", expiryDate: "", notes: "", originalFilename: file.name, mimeType: file.type, fileSizeBytes: file.size });
-    if (!started.ok) { setStage("failed"); setMessage(started.message); return; }
+    if (!started.ok) { starting.current = false; setStage("failed"); setMessage(started.message); return; }
     let response: Response;
     try {
       response = await uploadDocumentBinary(started.data.uploadUrl, started.data.contentType, file);
@@ -59,20 +63,21 @@ export function SmartUploadForm({ documentId: existingDocumentId, customerId, co
       await abandonDocumentUpload({ versionId: started.data.versionId });
       setStage("failed");
       setMessage("Private document storage could not be reached. Please retry in a moment.");
+      starting.current = false;
       return;
     }
-    if (!response.ok) { await abandonDocumentUpload({ versionId: started.data.versionId }); setStage("failed"); setMessage("The file could not be uploaded. Please try again."); return; }
+    if (!response.ok) { await abandonDocumentUpload({ versionId: started.data.versionId }); starting.current = false; setStage("failed"); setMessage("The file could not be uploaded. Please try again."); return; }
     const finalized = await finalizeDocumentUpload({ versionId: started.data.versionId });
-    if (!finalized.ok) { await abandonDocumentUpload({ versionId: started.data.versionId }); setStage("failed"); setMessage(finalized.message); return; }
+    if (!finalized.ok) { await abandonDocumentUpload({ versionId: started.data.versionId }); starting.current = false; setStage("failed"); setMessage(finalized.message); return; }
     setDocumentId(started.data.documentId); setVersionId(started.data.versionId); setStage("analyzing");
     const analyzed = await extractUploadedDocument({ documentId: started.data.documentId, versionId: started.data.versionId });
-    if (!analyzed.ok) { setStage("failed"); setMessage(analyzed.message); return; }
+    if (!analyzed.ok) { starting.current = false; setStage("failed"); setMessage(analyzed.message); return; }
     applyExtraction(analyzed.data.extraction as DocumentExtraction); setStage("review");
   }
   useEffect(() => {
     if (file && canStart && stage === "select") void begin();
   }, [file, documentTypeId, canStart, stage]);
-  function removeFile() { setFile(null); setMessage(""); setStage("select"); if (fileInput.current) fileInput.current.value = ""; }
+  function removeFile() { starting.current = false; setFile(null); setMessage(""); setStage("select"); if (fileInput.current) fileInput.current.value = ""; }
   async function confirm() {
     if (!extraction) return;
     setMessage("");
@@ -87,5 +92,6 @@ export function SmartUploadForm({ documentId: existingDocumentId, customerId, co
   }
   if (stage === "saved") return <section className="panel smart-upload success"><h2>Document saved</h2><p>The reviewed document details are now available in Note It’s expiry tracking.</p></section>;
   if (stage === "review" && extraction) return <section className="panel smart-upload"><p className="eyebrow">Extraction status</p><h1>Ready for review</h1><p>Detected: <b>{extraction.document_name}</b>. Nothing is saved to renewal fields until you confirm.</p>{extraction.confidence.expiry_date === "low" && <p className="form-error">Expiry date needs review.</p>}<div className="record-form"><fieldset><legend>Document details</legend><label>Document type<select value={documentTypeId} onChange={(e) => setDocumentTypeId(e.target.value)}>{documentTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label><label>Document name<input value={form.displayName} onChange={(e) => updateForm("displayName", e.target.value)} /></label><label>Document number<input value={form.documentNumber} onChange={(e) => updateForm("documentNumber", e.target.value)} /></label><label>Detected subject<input value={form.subjectName} onChange={(e) => updateForm("subjectName", e.target.value)} /></label><label>Issue date<input type="date" value={form.issueDate} onChange={(e) => updateForm("issueDate", e.target.value)} /></label><label>Expiry date<input type="date" value={form.expiryDate} onChange={(e) => updateForm("expiryDate", e.target.value)} /></label><label>Date of birth<input type="date" value={form.dateOfBirth} onChange={(e) => updateForm("dateOfBirth", e.target.value)} /></label><label>Nationality<input value={form.nationality} onChange={(e) => updateForm("nationality", e.target.value)} /></label><label className="wide">Issuing authority<input value={form.issuingAuthority} onChange={(e) => updateForm("issuingAuthority", e.target.value)} /></label></fieldset><fieldset><legend>Additional extracted information</legend>{additionalFields.length ? additionalFields.map((item, index) => <label key={`${item.key}-${index}`}><span>{item.key}</span><input value={item.value} onChange={(e) => setAdditional((current) => current.map((entry, position) => position === index ? { ...entry, value: e.target.value } : entry))} /></label>) : <p className="field-help">No additional information was detected.</p>}</fieldset><div className="actions"><button className="quiet-action" onClick={() => setStage("select")}>Upload again</button><button className="primary-button" onClick={confirm}>Confirm &amp; Save</button></div>{message && <p className="form-error">{message}</p>}</div></section>;
-  return <section className="panel smart-upload"><p className="eyebrow">Smart document upload</p><h1>Upload &amp; Auto Fill</h1><p>Upload a scanned document for {contextName}. Gemini analyzes the private file only after it is securely stored, then you review every value before saving.</p><label className="upload-dropzone"><span>Choose PDF, JPG, PNG, or WebP</span><input ref={fileInput} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" disabled={stage === "uploading" || stage === "analyzing"} onChange={(e) => { setFile(e.target.files?.[0] ?? null); setMessage(""); setStage("select"); }} />{file && <small>{file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB</small>}</label><label>Starting document type<select value={documentTypeId} onChange={(e) => setDocumentTypeId(e.target.value)} disabled={stage === "uploading" || stage === "analyzing"}>{documentTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label><p className="field-help">Upload starts automatically. The detected type can be corrected on the review screen. Maximum file size: 10 MB.</p>{stage === "uploading" && <p>Uploading securely…</p>}{stage === "analyzing" && <p>Reading document and extracting details…</p>}{message && <p className="form-error">{message}</p>}<div className="actions">{file && stage !== "uploading" && stage !== "analyzing" && <button className="quiet-action" type="button" onClick={removeFile}>Remove file</button>}{stage === "failed" && documentId && <><button className="quiet-action" onClick={async () => { setStage("analyzing"); const retry = await extractUploadedDocument({ documentId, versionId }); if (retry.ok) { applyExtraction(retry.data.extraction as DocumentExtraction); setStage("review"); } else { setStage("failed"); setMessage(retry.message); } }}>Retry extraction</button><button className="quiet-action" onClick={enterManually}>Continue manually</button></>}</div></section>;
+  const busy = stage === "uploading" || stage === "analyzing";
+  return <section className="panel smart-upload"><p className="eyebrow">Smart document upload</p><h1>Upload &amp; Auto Fill</h1><p>Upload a document for {contextName} and Note It will fill in the details for you. Review everything before saving.</p>{uploadDisabledReason ? <p className="upload-unavailable" role="status">{uploadDisabledReason}</p> : <><input className="upload-file-input" id="document-file" ref={fileInput} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => { starting.current = false; setFile(e.target.files?.[0] ?? null); setMessage(""); setStage("select"); }} />{file ? <div className="upload-selected"><span aria-hidden>PDF</span><div><b>{file.name}</b><small>{(file.size / 1024 / 1024).toFixed(1)} MB</small></div><label className="quiet-action" htmlFor="document-file">Change</label><button className="quiet-action" type="button" onClick={removeFile} disabled={busy}>Remove</button></div> : <label className="upload-dropzone" htmlFor="document-file"><b>Choose a file</b><span>PDF, JPG, PNG, or WebP · up to 10 MB</span></label>}<label>Document type<select value={documentTypeId} onChange={(e) => setDocumentTypeId(e.target.value)} disabled={busy}>{documentTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select><small>We’ll try to detect this automatically. You can change it during review.</small></label><p className="field-help">Upload starts as soon as you choose a supported file.</p>{stage === "uploading" && <div className="upload-progress" role="status"><b>Uploading document…</b><span>Securely storing your file.</span></div>}{stage === "analyzing" && <div className="upload-progress" role="status"><b>Preparing review…</b><span>Reading the document and filling in details.</span></div>}{message && <p className="form-error">{message}</p>}<div className="actions">{stage === "failed" && !documentId && <button className="primary-button" type="button" onClick={() => void begin()}>Retry upload</button>}{stage === "failed" && documentId && <><button className="quiet-action" onClick={async () => { setStage("analyzing"); const retry = await extractUploadedDocument({ documentId, versionId }); if (retry.ok) { applyExtraction(retry.data.extraction as DocumentExtraction); setStage("review"); } else { setStage("failed"); setMessage(retry.message); } }}>Retry extraction</button><button className="quiet-action" onClick={enterManually}>Continue manually</button></>}</div></>}</section>;
 }

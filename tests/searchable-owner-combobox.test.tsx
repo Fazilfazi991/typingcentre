@@ -34,4 +34,21 @@ describe("SearchableOwnerCombobox", () => {
     expect(onChange).toHaveBeenCalledWith("customer-2", expect.objectContaining({ label: "Ahmed Hassan" }));
     expect(screen.getByRole("button", { name: /ahmed hassan/i }).getAttribute("aria-expanded")).toBe("false");
   });
+
+  it("opens on mobile without forcing the software keyboard and dismisses focus after selection", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ json: () => Promise.resolve({ results: [{ id: "customer-1", label: "Aisha Ali", description: "North Star · +971511111111" }] }) })));
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<SearchableOwnerCombobox kind="customer" name="customerId" onChange={onChange} />);
+
+    await user.click(screen.getByRole("button", { name: /select a customer/i }));
+    const search = screen.getByRole("textbox", { name: /search customer/i });
+    expect(document.activeElement).not.toBe(search);
+    await user.click(search);
+    await user.click(await screen.findByRole("option", { name: /aisha ali/i }));
+
+    expect(onChange).toHaveBeenCalledWith("customer-1", expect.objectContaining({ label: "Aisha Ali" }));
+    expect(document.activeElement).not.toBe(search);
+    expect(document.body.classList.contains("owner-picker-open")).toBe(false);
+  });
 });

@@ -3470,14 +3470,18 @@ th {
   color: #5934c4;
   text-align: center;
 }
-.upload-dropzone input {
-  max-width: 280px;
-  border: 0;
-  background: transparent;
-}
-.upload-dropzone small {
-  color: #667085;
-}
+.upload-dropzone b { font-size:16px; }
+.upload-dropzone span { color:#667085;font-weight:500; }
+.upload-file-input { position:absolute;width:1px!important;height:1px;padding:0!important;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0!important; }
+.upload-selected { display:grid;grid-template-columns:48px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:14px;border:1px solid #dce4f0;border-radius:12px;background:#f8fbff; }
+.upload-selected>span { display:grid;width:48px;height:48px;place-items:center;border-radius:11px;background:#e7f0ff;color:#174d99;font-size:11px;font-weight:800; }
+.upload-selected>div { display:grid;min-width:0;gap:3px; }
+.upload-selected b { overflow:hidden;color:#102a5c;text-overflow:ellipsis;white-space:nowrap; }
+.upload-selected small { color:#667085; }
+.upload-selected label { display:inline-flex;align-items:center;justify-content:center; }
+.upload-progress { display:grid;gap:4px;padding:14px;border-radius:12px;background:#eef5ff;color:#174d99; }
+.upload-progress span { font-size:13px; }
+.upload-unavailable { padding:14px;border:1px solid #f0cf9e;border-radius:12px;background:#fff8ed;color:#70420d!important; }
 .smart-upload .record-form {
   max-width: none;
 }
@@ -4611,6 +4615,7 @@ th {
 @media (max-width: 760px) {
   html { scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   body.mobile-menu-open { overflow: hidden; }
+  body.owner-picker-open [data-mobile-navigation] { display: none; }
   .app-shell { grid-template-columns: minmax(0, 1fr); width: 100%; }
   .app-shell > .sidebar { display: none; }
   .app-stage { width: 100%; min-width: 0; }
@@ -4631,6 +4636,12 @@ th {
   .app-stage > .topbar .profile-copy,.app-stage > .topbar .profile-chevron { display: none; }
   .app-stage > .topbar .create-menu > div,.app-stage > .topbar .notification-menu > div,.app-stage > .topbar .profile-menu > div { position: fixed; top: calc(58px + env(safe-area-inset-top)); right: 12px; left: auto; max-width: calc(100vw - 24px); max-height: calc(100dvh - 150px); overflow:auto; }
   .app-stage > .app-content { padding: 18px 16px calc(86px + env(safe-area-inset-bottom)); }
+  .smart-upload { margin-top:12px;padding:16px; }
+  .upload-selected { grid-template-columns:44px minmax(0,1fr);gap:10px; }
+  .upload-selected>span { grid-row:1/3;width:44px;height:44px; }
+  .upload-selected .quiet-action { min-height:44px; }
+  .upload-selected label { grid-column:1/2;grid-row:3; }
+  .upload-selected button { grid-column:2/3;grid-row:3; }
   .page-heading { margin-bottom: 16px; }
   .page-heading h1 { font-size: 27px; }
   .page-heading p { margin-top: 5px; }

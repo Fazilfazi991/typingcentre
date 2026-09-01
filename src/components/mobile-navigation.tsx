@@ -54,7 +54,7 @@ export function MobileNavigation({ canImport, logoutAction }: { canImport: boole
   }, [open]);
 
   return <>
-    <nav className={styles.nav} aria-label="Mobile workspace navigation">
+    <nav className={styles.nav} data-mobile-navigation aria-label="Mobile workspace navigation">
       {primary.map((item) => { const active = pathname.startsWith(item.href); return <Link key={item.href} href={item.href} className={active ? styles.active : ""} aria-current={active ? "page" : undefined}><Icon name={item.icon}/><span>{item.label}</span></Link>; })}
       <button type="button" onClick={() => setOpen(true)} className={moreActive || open ? styles.active : ""} aria-haspopup="dialog" aria-expanded={open}><Icon name="more"/><span>More</span></button>
     </nav>

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { SmartUploadForm } from "@/features/documents/smart-upload-form";
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { isDemoWorkspace } from "@/lib/demo/workspace";
 import { DocumentOwnerPicker } from "./document-owner-picker";
 
 export const dynamic = "force-dynamic";
@@ -23,5 +24,6 @@ export default async function SmartDocumentUpload({ searchParams }: { searchPara
   const existingCompany = Array.isArray(documentResult.data?.companies) ? documentResult.data.companies[0] : documentResult.data?.companies;
   if (!customerId && !companyId && !documentId) return <WorkspaceShell organizationName={context.organization.name} activePath="/documents"><header className="page-heading"><Link href="/documents">Back</Link><h1>Add document</h1><p>Choose an owner before uploading a scanned document.</p></header><DocumentOwnerPicker /></WorkspaceShell>;
   const backPath = documentId ? `/documents/${documentId}` : customerId ? `/customers/${customerId}` : `/companies/${companyId}`;
-  return <WorkspaceShell organizationName={context.organization.name} activePath="/documents"><header className="page-heading"><Link href={backPath}>Back</Link><h1>{documentId ? "Upload document version" : "Add document"}</h1><p>Upload a scanned document and review extracted values before saving.</p></header><SmartUploadForm documentId={documentId} customerId={customerId} companyId={companyId} customerName={customerResult.data?.full_name || existingCustomer?.full_name} companyName={companyResult.data?.name || existingCompany?.name} documentTypes={typesResult.data} /></WorkspaceShell>;
+  const uploadDisabledReason = isDemoWorkspace({ email: context.user.email, organizationSlug: context.organization.slug }) ? "File uploads are disabled in this mobile branch’s Demo workspace. Use a normal QA tenant to test uploads." : undefined;
+  return <WorkspaceShell organizationName={context.organization.name} activePath="/documents"><header className="page-heading"><Link href={backPath}>Back</Link><h1>{documentId ? "Upload document version" : "Add document"}</h1><p>Upload a scanned document and review extracted values before saving.</p></header><SmartUploadForm documentId={documentId} customerId={customerId} companyId={companyId} customerName={customerResult.data?.full_name || existingCustomer?.full_name} companyName={companyResult.data?.name || existingCompany?.name} documentTypes={typesResult.data} uploadDisabledReason={uploadDisabledReason} /></WorkspaceShell>;
 }

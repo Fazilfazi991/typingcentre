@@ -1,5 +1,5 @@
 import "server-only";
-import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getR2Client, getR2Configuration } from "./client";
 import { measureAsync } from "@/lib/performance/timing";
@@ -21,6 +21,13 @@ export async function inspectDocumentObject(objectKey: string) {
   return measureAsync("upload_head_verification", () => getR2Client(config).send(
     new HeadObjectCommand({ Bucket: config.R2_BUCKET_NAME, Key: objectKey }),
   ));
+}
+
+export async function deleteDocumentObject(objectKey: string) {
+  const config = getR2Configuration();
+  await getR2Client(config).send(
+    new DeleteObjectCommand({ Bucket: config.R2_BUCKET_NAME, Key: objectKey }),
+  );
 }
 
 export async function readDocumentObject(objectKey: string) {

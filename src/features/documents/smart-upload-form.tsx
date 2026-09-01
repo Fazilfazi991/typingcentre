@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { confirmDocumentExtraction, createDocumentUploadSession, extractUploadedDocument, finalizeDocumentUpload } from "./actions";
+import { abandonDocumentUpload, confirmDocumentExtraction, createDocumentUploadSession, extractUploadedDocument, finalizeDocumentUpload } from "./actions";
 import type { DocumentExtraction } from "@/lib/document-ai/types";
 
 type TypeOption = { id: string; name: string };
@@ -56,13 +56,14 @@ export function SmartUploadForm({ documentId: existingDocumentId, customerId, co
     try {
       response = await uploadDocumentBinary(started.data.uploadUrl, started.data.contentType, file);
     } catch {
+      await abandonDocumentUpload({ versionId: started.data.versionId });
       setStage("failed");
       setMessage("Private document storage could not be reached. Please retry in a moment.");
       return;
     }
-    if (!response.ok) { setStage("failed"); setMessage("The file could not be uploaded. Please try again."); return; }
+    if (!response.ok) { await abandonDocumentUpload({ versionId: started.data.versionId }); setStage("failed"); setMessage("The file could not be uploaded. Please try again."); return; }
     const finalized = await finalizeDocumentUpload({ versionId: started.data.versionId });
-    if (!finalized.ok) { setStage("failed"); setMessage(finalized.message); return; }
+    if (!finalized.ok) { await abandonDocumentUpload({ versionId: started.data.versionId }); setStage("failed"); setMessage(finalized.message); return; }
     setDocumentId(started.data.documentId); setVersionId(started.data.versionId); setStage("analyzing");
     const analyzed = await extractUploadedDocument({ documentId: started.data.documentId, versionId: started.data.versionId });
     if (!analyzed.ok) { setStage("failed"); setMessage(analyzed.message); return; }

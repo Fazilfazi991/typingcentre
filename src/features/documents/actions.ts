@@ -7,6 +7,7 @@ import { safeDatabaseError } from "@/lib/workspace/utils";
 import {
   createDocumentDownloadUrl,
   createDocumentUploadUrl,
+  deleteDocumentObject,
   inspectDocumentObject,
   readDocumentObject,
 } from "@/lib/r2/objects";
@@ -26,6 +27,19 @@ import {
 } from "./validation";
 
 type SafeResult<T> = { ok: true; data: T } | { ok: false; message: string };
+
+async function abandonUpload(context: NonNullable<Awaited<ReturnType<typeof workspaceOrUnavailable>>>, versionId: string) {
+  const { data: objectKey, error } = await context.supabase.rpc("abandon_document_upload", {
+    target_version_id: versionId,
+  });
+  if (error || typeof objectKey !== "string") return false;
+  try {
+    await deleteDocumentObject(objectKey);
+  } catch {
+    // The database draft is already gone. R2 lifecycle cleanup remains the fallback.
+  }
+  return true;
+}
 
 async function workspaceOrUnavailable() {
   const context = await getWorkspaceContext();
@@ -181,8 +195,20 @@ export async function createDocumentUploadSession(
       data: { documentId, versionId, uploadUrl, contentType: parsed.data.mimeType },
     };
   } catch {
+    await abandonUpload(context, versionId);
     return { ok: false, message: "We could not prepare the upload. Please try again." };
   }
+}
+
+export async function abandonDocumentUpload(input: unknown): Promise<SafeResult<{ abandoned: true }>> {
+  const parsed = documentVersionIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "The upload is unavailable." };
+  const context = await workspaceOrUnavailable();
+  if (!context) return { ok: false, message: "Your workspace is unavailable." };
+  const abandoned = await abandonUpload(context, parsed.data.versionId);
+  if (!abandoned) return { ok: false, message: "We could not clear the failed upload." };
+  revalidatePath("/documents");
+  return { ok: true, data: { abandoned: true } };
 }
 
 export async function finalizeDocumentUpload(

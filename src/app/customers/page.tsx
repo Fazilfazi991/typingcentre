@@ -143,11 +143,11 @@ export default async function Customers({
                   <dl>
                     <div>
                       <dt>Documents</dt>
-                      <dd>{documents || "No"} {documents === 1 ? "document" : "documents"}</dd>
+                      <dd>{documents ? `${documents} document${documents === 1 ? "" : "s"}` : "No documents yet"}</dd>
                     </div>
                     <div>
                       <dt>Next expiry</dt>
-                      <dd>{next ? `${type || "Document"} · ${getRelativeExpiryText(next)}` : "No expiry recorded"}</dd>
+                      <dd className="customer-expiry-mobile">{next ? <><b>{type || "Document"}</b><small>{getRelativeExpiryText(next)}</small></> : "No expiry recorded"}</dd>
                     </div>
                   </dl>
                   <CustomerActions customer={customer} />

@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { NoteItLogo } from "@/components/note-it-logo";
 import { isDemoWorkspace } from "@/lib/demo/workspace";
+import { MobileNavigation } from "@/components/mobile-navigation";
 
 const nav = [
   ["Dashboard", "/dashboard", "⊞"], ["Customers", "/customers", "♙"], ["Companies", "/companies", "▥"],
@@ -33,5 +34,6 @@ export async function WorkspaceShell({ organizationName, activePath, children }:
       <DashboardHeader name={name} role={role} organizationName={organizationName} unreadNotifications={unreadNotifications ?? 0} logoutAction={logoutAction} />
       <section className="app-content">{children}</section>
     </section>
+    <MobileNavigation canImport={["owner", "admin"].includes(workspace?.membership.role ?? "")} logoutAction={logoutAction} />
   </main>;
 }

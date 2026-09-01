@@ -61,7 +61,7 @@ export default async function Companies({ searchParams }: { searchParams: Promis
         </form>
 
         <section className={`panel ${styles.tablePanel}`}>
-          {data?.length ? (
+          {data?.length ? (<>
             <div className={styles.tableScroll}>
               <table className={styles.table}>
                 <thead><tr><th>Company</th><th>Licence</th><th>Emirate</th><th>Actions</th></tr></thead>
@@ -79,6 +79,7 @@ export default async function Companies({ searchParams }: { searchParams: Promis
                 ))}</tbody>
               </table>
             </div>
+            <div className={styles.mobileList}>{data.map((company: any) => <article key={company.id}><div><Link href={`/companies/${company.id}`}>{company.name}</Link><small>{company.trade_name || "No trade name recorded"}</small></div><dl><div><dt>Licence</dt><dd>{company.licence_number || "Not recorded"}</dd></div><div><dt>Emirate</dt><dd>{company.city}</dd></div></dl><div className={styles.mobileActions}><Link href={`/companies/${company.id}`}>View</Link><Link href={`/companies/${company.id}/edit`}>Edit</Link><ArchiveDialog action={archiveCompanyAction} fields={{ companyId: company.id }} entityName={company.name} title="Archive company?" description="This removes the company from active lists. Existing branches, customers and historical records remain retained." confirmLabel="Archive Company" /></div></article>)}</div></>
           ) : <div className="empty-state">No companies match this workspace.</div>}
         </section>
         <p className={styles.pagination}>{count ?? 0} company records</p>

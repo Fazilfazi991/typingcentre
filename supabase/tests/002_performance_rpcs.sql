@@ -1,5 +1,5 @@
 begin;
-select plan(20);
+select plan(21);
 set local session_replication_role = replica;
 
 insert into public.organizations (id,name,slug,location) values
@@ -46,6 +46,9 @@ select is((payload->>'count')::integer,1,'archived customer is excluded') from c
 select is((payload->'rows'->0->>'document_count')::integer,9,'active document count is correct') from customer_summary;
 select is(payload->'rows'->0->>'next_expiry_date','2026-08-30','next expiry is correct') from customer_summary;
 select ok(payload::text not like '%Bob Other%','customer summary excludes another organization') from customer_summary;
+
+create temporary table company_customer_summary as select public.customer_list_summary('a0000000-0000-0000-0000-000000000001','Acme','full_name',true,0,20) payload;
+select is((payload->>'count')::integer,1,'customer summary finds a customer by company name') from company_customer_summary;
 
 select results_eq($$select label from public.owner_search('a0000000-0000-0000-0000-000000000001','customer','Alice',25)$$,$$values ('Alice Example'::text)$$,'owner search finds customer name');
 select results_eq($$select label from public.owner_search('a0000000-0000-0000-0000-000000000001','customer','Acme',25)$$,$$values ('Alice Example'::text)$$,'owner search folds company name matching into customer results');

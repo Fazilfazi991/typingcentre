@@ -1,8 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["icn1"],
-  "crons": [
-    { "path": "/api/internal/expiry-notifications", "schedule": "0 4 * * *" },
-    { "path": "/api/internal/demo-reset", "schedule": "0 */6 * * *" }
-  ]
+  "crons": [{ "path": "/api/internal/expiry-notifications", "schedule": "0 4 * * *" }]
 }

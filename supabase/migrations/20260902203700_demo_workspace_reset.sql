@@ -95,3 +95,35 @@ $$;
 
 revoke all on function public.reset_note_it_demo_workspace() from public, anon, authenticated;
 grant execute on function public.reset_note_it_demo_workspace() to service_role;
+
+-- Vercel Hobby rejects sub-daily schedules. Use the existing protected
+-- Supabase Cron + Vault path to invoke the server endpoint every six hours.
+do $$
+declare
+  existing_job_id bigint;
+begin
+  for existing_job_id in select jobid from cron.job where jobname = 'noteit-demo-reset'
+  loop
+    perform cron.unschedule(existing_job_id);
+  end loop;
+
+  if exists (select 1 from vault.decrypted_secrets where name = 'noteit_cron_secret') then
+    perform cron.schedule(
+      'noteit-demo-reset',
+      '0 */6 * * *',
+      $job$
+        select net.http_get(
+          url := 'https://www.noteitapp.com/api/internal/demo-reset',
+          headers := jsonb_build_object(
+            'Authorization',
+            'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'noteit_cron_secret' limit 1)
+          ),
+          timeout_milliseconds := 30000
+        ) as request_id;
+      $job$
+    );
+  else
+    raise notice 'Demo reset cron was not scheduled: Vault secret noteit_cron_secret is absent';
+  end if;
+end;
+$$;

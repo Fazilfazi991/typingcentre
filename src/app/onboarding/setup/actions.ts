@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { UAE_EMIRATES } from "@/lib/location/emirates";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 
 export type SetupState = { error?: string; step?: number };
@@ -15,7 +16,7 @@ export async function saveSetupStep(_: SetupState, form: FormData): Promise<Setu
 
   if (step === 2) {
     const name = value(form, "name"); const location = value(form, "location");
-    if (name.length < 2 || location.length < 2) return { error: "Enter the business name and Emirate/location." };
+    if (name.length < 2 || !UAE_EMIRATES.includes(location as (typeof UAE_EMIRATES)[number])) return { error: "Enter the business name and select a valid Emirate." };
     const email = value(form, "email"); const phone = value(form, "phone");
     if (email && !/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid business email or leave it blank." };
     if (phone && phone.length < 7) return { error: "Enter a valid business phone or leave it blank." };

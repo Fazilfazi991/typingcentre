@@ -38,4 +38,17 @@ describe("onboarding action", () => {
     expect(result).toEqual({ error: "Enter the workspace details and accept the terms." });
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  it("rejects a manipulated Emirate value before provisioning", async () => {
+    const form = new FormData();
+    form.set("name", "Renewal QA");
+    form.set("location", "Not a UAE Emirate");
+    form.set("displayName", "Renewal Owner");
+    form.set("acceptTerms", "true");
+
+    const result = await onboardAction({}, form);
+
+    expect(result).toEqual({ error: "Enter the workspace details and accept the terms." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });

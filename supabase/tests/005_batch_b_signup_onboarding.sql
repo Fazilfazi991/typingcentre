@@ -1,10 +1,16 @@
 begin;
-select plan(20);
+select plan(24);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
   ('b0000000-0000-4000-8000-000000000001', 'batch-b-owner@example.com', '{"full_name":"Initial Owner"}'),
-  ('b0000000-0000-4000-8000-000000000002', 'batch-b-other@example.com', '{"full_name":"Other Owner"}');
+  ('b0000000-0000-4000-8000-000000000002', 'batch-b-other@example.com', '{"full_name":"Other Owner"}'),
+  ('b0000000-0000-4000-8000-000000000003', 'batch-b-demo@example.com', '{"full_name":"Demo User"}');
+
+insert into public.organizations (id, name, slug, location, onboarding_step, onboarding_completed_at)
+values ('b0000000-0000-4000-8000-000000000010', 'Batch B Demo', 'note-it-demo', 'Dubai', 4, now());
+insert into public.organization_memberships (organization_id, user_id, role, status, is_primary_owner)
+values ('b0000000-0000-4000-8000-000000000010', 'b0000000-0000-4000-8000-000000000003', 'owner', 'active', true);
 
 select has_function(
   'public',
@@ -22,9 +28,16 @@ select is(
 select ok(not has_function_privilege('public', 'public.provision_current_user_workspace(text,text,text,text)', 'execute'), 'PUBLIC cannot provision');
 select ok(not has_function_privilege('anon', 'public.provision_current_user_workspace(text,text,text,text)', 'execute'), 'anon cannot provision');
 select ok(has_function_privilege('authenticated', 'public.provision_current_user_workspace(text,text,text,text)', 'execute'), 'authenticated users can provision');
+select ok(not has_table_privilege('authenticated', 'public.organization_memberships', 'insert'), 'signup users cannot insert tenant memberships directly');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'b0000000-0000-4000-8000-000000000001', true);
+select throws_ok(
+  $$select public.provision_current_user_workspace('Manipulated Workspace', 'Not a UAE Emirate', 'Batch B Owner', null)$$,
+  'P0001',
+  'Invalid workspace location',
+  'direct RPC manipulation cannot bypass the canonical Emirate list'
+);
 create temporary table first_workspace as
 select public.provision_current_user_workspace('Batch B Typing Centre', 'Dubai', 'Batch B Owner', '+971501234567') id;
 
@@ -48,6 +61,12 @@ create temporary table second_workspace as
 select public.provision_current_user_workspace('Other Tenant', 'Abu Dhabi', 'Other Owner', null) id;
 select is((select count(*)::integer from public.organizations where id = (select id from first_workspace)), 0, 'RLS hides the first tenant from the second owner');
 select ok(not has_column_privilege('authenticated', 'public.profiles', 'platform_role', 'update'), 'signup users cannot grant platform roles');
+
+select set_config('request.jwt.claim.sub', 'b0000000-0000-4000-8000-000000000003', true);
+create temporary table demo_workspace as
+select public.provision_current_user_workspace('Should Not Exist', 'Sharjah', 'Demo User', null) id;
+select is((select id from demo_workspace), 'b0000000-0000-4000-8000-000000000010'::uuid, 'Demo identity remains in the existing Demo tenant');
+select is((select count(*)::integer from public.organization_memberships where user_id = 'b0000000-0000-4000-8000-000000000003'), 1, 'Demo provisioning retry creates no second membership');
 
 select * from finish();
 rollback;

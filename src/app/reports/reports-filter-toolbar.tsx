@@ -12,9 +12,12 @@ export function ReportsFilterToolbar({
   types: Array<{ id: string; name: string }>;
 }) {
   const [range, setRange] = useState<ReportRange>(filters.range);
+  const [open, setOpen] = useState(false);
   const isCustom = range === "custom";
+  const appliedCount = [filters.range !== "all", filters.owner !== "all", Boolean(filters.typeId), filters.sort !== "expiry-asc"].filter(Boolean).length;
   return (
-    <form className="panel reports-filters" method="get" aria-label="Report filters">
+    <form className={`panel reports-filters ${open ? "is-open" : ""}`} method="get" aria-label="Report filters">
+      <button className="reports-mobile-filter-toggle" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}><span>Filters{appliedCount ? ` (${appliedCount})` : ""}</span><span aria-hidden>{open ? "−" : "+"}</span></button>
       <div className="reports-filter-row">
         <label>
           Range

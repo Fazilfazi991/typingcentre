@@ -24,7 +24,12 @@ export function SearchableOwnerCombobox({
   const inputRef = useRef<HTMLInputElement>(null);
   const label = kind === "customer" ? "customer" : "company";
 
-  useEffect(() => { if (open) requestAnimationFrame(() => inputRef.current?.focus()); }, [open]);
+  useEffect(() => {
+    document.body.classList.toggle("owner-picker-open", open);
+    if (open && window.matchMedia?.("(min-width: 761px) and (pointer: fine)").matches)
+      requestAnimationFrame(() => inputRef.current?.focus());
+    return () => document.body.classList.remove("owner-picker-open");
+  }, [open]);
   useEffect(() => { setCurrent(selected ?? null); }, [selected]);
   useEffect(() => {
     if (!open) return;
@@ -44,7 +49,7 @@ export function SearchableOwnerCombobox({
   }, [kind, open, query]);
 
   function choose(option: OwnerSearchOption | null) {
-    setCurrent(option); setQuery(""); setResults([]); setOpen(false); onChange?.(option?.id ?? "", option);
+    inputRef.current?.blur(); setCurrent(option); setQuery(""); setResults([]); setOpen(false); onChange?.(option?.id ?? "", option);
   }
   function keys(event: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) {
     if (event.key === "Escape") { setOpen(false); return; }
@@ -60,7 +65,7 @@ export function SearchableOwnerCombobox({
       {current?.label || `Select a ${label}`}<span aria-hidden>⌄</span>
     </button>
     {open && <div className="owner-combobox-menu">
-      <input ref={inputRef} className="owner-combobox-search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={keys} placeholder={`Search ${label}...`} aria-label={`Search ${label}`} />
+      <div className="owner-combobox-search-row"><input ref={inputRef} className="owner-combobox-search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={keys} placeholder={`Search ${label}...`} aria-label={`Search ${label}`} />{query && <button type="button" onClick={() => { setQuery(""); inputRef.current?.focus(); }}>Clear</button>}<button type="button" onClick={() => { inputRef.current?.blur(); setOpen(false); }}>Done</button></div>
       {allowEmpty && current && <button type="button" className="owner-combobox-clear" onClick={() => choose(null)}>Clear selection</button>}
       <div className="owner-combobox-results" role="listbox" aria-label={`${label} results`}>
         {query.trim().length === 1 ? <p className="owner-combobox-empty">Enter at least 2 characters to search</p> : results.length ? results.map((option, index) => {

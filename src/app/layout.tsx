@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./customer-responsive.css";
 
@@ -9,4 +9,5 @@ export const metadata: Metadata = {
   icons: { icon: "/brand/favicon-32.png", apple: "/brand/favicon-192.png" },
   openGraph: { title: "Note It", description: "Document expiry, renewal and follow-up management for typing centres.", images: ["/brand/note-it-app-icon.png"] },
 };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en"><body>{children}</body></html>; }

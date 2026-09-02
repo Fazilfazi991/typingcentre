@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React, { type FormEvent, type MouseEvent } from "react";
+import { NoteItLogo } from "@/components/note-it-logo";
 
 export type DashboardHeaderIdentity = {
   name: string;
@@ -48,6 +49,7 @@ export function DashboardHeader({
 
   return (
     <header className="topbar">
+      <Link className="mobile-topbar-brand" href="/dashboard" aria-label="Note It dashboard"><NoteItLogo /></Link>
       <form className="global-search" role="search" action="/search" onSubmit={submitSearch}>
         <input name="search" aria-label="Search customers, companies or documents" placeholder="Search customers, companies or documents..." />
         <button type="submit" aria-label="Search">

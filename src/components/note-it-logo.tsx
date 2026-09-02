@@ -1,3 +1,4 @@
+import React from "react";
 import Image, { type ImageProps } from "next/image";
 
 export function NoteItLogo({ className, ...props }: Omit<ImageProps, "src" | "alt" | "width" | "height">) {

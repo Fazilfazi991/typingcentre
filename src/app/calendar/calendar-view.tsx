@@ -58,6 +58,7 @@ export function CalendarView({ month, today, events }: { month: string; today: s
       <div className="calendar-grid">{daysInMonth(month).map((date, index) => date ? <div key={date} className={`calendar-day ${date === selectedDate ? "is-selected" : ""} ${date === today ? "is-today" : ""}`}>
         <button type="button" className="calendar-date-button" onClick={() => setSelectedDate(date)} aria-pressed={date === selectedDate} aria-label={`Show events for ${dateLabel(date)}`}><time dateTime={date}>{Number(date.slice(-2))}</time></button>
         <span className="calendar-event-summary">{(byDate.get(date) ?? []).slice(0, 2).map((event) => <Link href={event.href} className={`calendar-dot ${event.category} ${event.status}`} key={event.id}>{event.title}</Link>)}</span>
+        {(byDate.get(date)?.length ?? 0) > 0 && <span className="calendar-mobile-count" aria-hidden><i />{byDate.get(date)!.length}</span>}
         {(byDate.get(date)?.length ?? 0) > 2 && <button type="button" className="calendar-more-button" onClick={() => setSelectedDate(date)}>+{byDate.get(date)!.length - 2} more</button>}
       </div> : <span key={`blank-${index}`} className="calendar-blank" aria-hidden="true" />)}</div>
     </section>

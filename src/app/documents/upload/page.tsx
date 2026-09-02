@@ -3,8 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { SmartUploadForm } from "@/features/documents/smart-upload-form";
 import { getWorkspaceContext } from "@/lib/workspace/context";
-import { DocumentOwnerPicker } from "./document-owner-picker";
 import { isDemoWorkspace } from "@/lib/demo/workspace";
+import { DocumentOwnerPicker } from "./document-owner-picker";
 
 export const dynamic = "force-dynamic";
 

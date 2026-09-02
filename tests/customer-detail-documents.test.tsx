@@ -33,7 +33,13 @@ function workspace(documents: unknown[]) {
     limit: () => Promise.resolve({ data: [], error: null }),
   });
   getWorkspaceContext.mockResolvedValue({
-    supabase: { from: (table: string) => (calls.push(["from", table]), builder(table)) },
+    supabase: {
+      from: (table: string) => (calls.push(["from", table]), builder(table)),
+      rpc: (name: string, args: unknown) => {
+        calls.push(["rpc", name, args]);
+        return Promise.resolve({ data: [], error: null });
+      },
+    },
     organization: { id: "tenant-a", name: "Tenant A", timezone: "Asia/Dubai" },
   });
   return calls;
@@ -53,6 +59,11 @@ describe("customer detail canonical documents", () => {
     expect(calls).toContainEqual(["documents.eq", "organization_id", "tenant-a"]);
     expect(calls).toContainEqual(["documents.eq", "customer_id", customerId]);
     expect(calls).toContainEqual(["documents.is", "archived_at", null]);
+    expect(calls).toContainEqual(["rpc", "customer_activity_timeline", {
+      target_organization_id: "tenant-a",
+      target_customer_id: customerId,
+      result_limit: 8,
+    }]);
     expect(html).toContain("Emirates ID");
     expect(html).toContain("No expiry date");
     expect(html).toContain("/documents/quick-scan-document");

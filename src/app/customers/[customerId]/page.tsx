@@ -33,7 +33,11 @@ export default async function CustomerDetail({
       .eq("id", customerId)
       .maybeSingle(),
     context.supabase.from("follow_ups").select("id,due_at,status,note").eq("customer_id", customerId).order("due_at").limit(6),
-    context.supabase.from("activity_logs").select("id,message,created_at").order("created_at", { ascending: false }).limit(5),
+    context.supabase.rpc("customer_activity_timeline", {
+      target_organization_id: context.organization.id,
+      target_customer_id: customerId,
+      result_limit: 8,
+    }),
     // Documents are owned directly by their customer_id.  Do not infer ownership
     // through the customer's linked company, activity history, or file versions.
     context.supabase
@@ -157,10 +161,10 @@ export default async function CustomerDetail({
           )}
         </article>
         <article className="panel">
-          <h2>Activity</h2>
+          <h2>Customer activity</h2>
           {activity?.length ? (
             <div className="stack">
-              {activity.map((item) => (
+              {activity.map((item: { id: string; message: string; created_at: string }) => (
                 <div className="row" key={item.id}>
                   <b>{item.message}</b>
                   <time>{new Date(item.created_at).toLocaleDateString()}</time>
@@ -168,7 +172,7 @@ export default async function CustomerDetail({
               ))}
             </div>
           ) : (
-            <p className="empty-state">No activity yet.</p>
+            <p className="empty-state">No customer activity yet.</p>
           )}
         </article>
         <article className="panel">

@@ -50,6 +50,28 @@
   --shadow: 0 8px 24px rgba(2, 25, 82, 0.07);
 }
 
+/* Batch B: focused account creation and resumable workspace onboarding. */
+.signup-page,.onboarding-page{min-height:calc(100vh - 160px);padding:48px 20px;align-items:flex-start}
+.signup-page .auth-panel,.onboarding-panel{width:min(100%,540px);margin:auto}
+.signup-form,.onboarding-form{gap:10px}
+.signup-form label,.onboarding-form label,.onboarding-setup label{font-weight:750;color:#27364d}
+.signup-form>input,.onboarding-form>input,.onboarding-form>select,.onboarding-setup input{min-height:48px}
+.auth-hint,.auth-switch{margin:0;color:#667085;font-size:.84rem;line-height:1.5}
+.auth-switch{text-align:center}.auth-switch a{font-weight:800}
+.auth-verification{display:grid;gap:14px;text-align:center}.auth-verification h1,.auth-verification p{margin:0}.auth-verification form{margin-top:8px}
+.auth-state-icon{display:grid;width:52px;height:52px;margin:auto;place-items:center;border-radius:50%;background:#e7f8ef;color:#087a42;font-size:1.5rem;font-weight:900}
+.auth-eyebrow{color:#0865e6;font-size:.76rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.auth-consent{display:flex!important;gap:10px;align-items:flex-start!important;margin:8px 0}.auth-consent input{width:18px;height:18px;margin-top:2px}.auth-consent span{font-weight:500}
+.onboarding-progress{display:grid;margin:0 0 28px;padding:0;grid-template-columns:repeat(3,1fr);gap:8px;list-style:none;counter-reset:onboarding}
+.onboarding-progress li{display:grid;gap:7px;color:#7c8799;font-size:.75rem;font-weight:800;counter-increment:onboarding}
+.onboarding-progress li:before{content:counter(onboarding);display:grid;width:28px;height:28px;place-items:center;border:1px solid #ced6e2;border-radius:50%;background:#fff}
+.onboarding-progress li:after{content:"";height:3px;border-radius:2px;background:#e7ebf1;grid-row:1;align-self:center;margin-left:36px}
+.onboarding-progress li:last-child:after{display:none}.onboarding-progress li.active,.onboarding-progress li.complete{color:#0865e6}.onboarding-progress li.active:before{border-color:#0865e6;background:#0865e6;color:#fff}.onboarding-progress li.complete:before{content:"✓";border-color:#8cd3af;background:#e7f8ef;color:#087a42}.onboarding-progress li.complete:after{background:#8cd3af}
+.onboarding-setup{display:grid}.onboarding-setup .auth-intro{margin-bottom:24px}.onboarding-setup .auth-form{display:grid;gap:12px}.onboarding-setup label{display:grid;gap:7px}.onboarding-setup label span{color:#7c8799;font-size:.78rem;font-weight:500}.onboarding-ready{display:grid;gap:12px}.onboarding-ready .secondary-button{min-height:46px}.onboarding-ready small{text-align:center;color:#667085}
+.first-run-card{display:flex;margin-bottom:22px;padding:24px;align-items:flex-start;gap:18px;border:1px solid #b8d5fa;border-radius:16px;background:linear-gradient(135deg,#f4f9ff,#fff)}
+.first-run-card h2,.first-run-card p{margin:0 0 8px}.first-run-mark{display:grid;flex:0 0 44px;height:44px;place-items:center;border-radius:12px;background:#0865e6;color:#fff;font-size:1.3rem;font-weight:900}.first-run-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}.first-run-actions>a:not(.primary-button):not(.secondary-button){padding:10px;color:#0865e6;font-weight:800}
+@media(max-width:600px){.signup-page,.onboarding-page{min-height:auto;padding:22px 14px 44px}.signup-page .auth-panel,.onboarding-panel{padding:22px 18px}.signup-form input,.onboarding-form input,.onboarding-form select,.onboarding-setup input{font-size:16px}.onboarding-progress{margin-bottom:22px}.first-run-card{padding:18px;flex-direction:column}.first-run-actions{display:grid}.first-run-actions a{width:100%;justify-content:center;text-align:center}}
+
 /* Public legal and authentication shell. */
 .public-site-shell { min-height: 100vh; display: flex; flex-direction: column; background: #f7f9fc; color: #071d49; }
 .public-site-header { width: 100%; min-height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 12px clamp(20px, 4vw, 64px); background: #fff; border-bottom: 1px solid #e4eaf3; }

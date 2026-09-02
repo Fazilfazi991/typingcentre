@@ -1,29 +1,6 @@
-"use client";
-import Link from "next/link";
-import { useActionState } from "react";
-import { onboardAction } from "../actions";
-export default function Onboarding() {
-  const [state, action, pending] = useActionState(onboardAction, { error: "" });
-  return (
-    <main className="auth">
-      <form action={action}>
-        <h1>Set up your workspace in Note It</h1>
-        <p>Let&apos;s get your typing centre organized.</p>
-        <input name="name" placeholder="Business name" required />
-        <input name="slug" placeholder="organization-slug" required />
-        <input name="location" placeholder="Emirate / location" required />
-        <input name="email" type="email" placeholder="Business email" required />
-        <input name="phone" placeholder="Phone" required />
-        <input name="whatsapp" placeholder="WhatsApp (optional)" />
-        <input name="address" placeholder="Address (optional)" />
-        <input name="primaryColor" defaultValue="#0E7BFF" required />
-        <label>
-          <input name="acceptTerms" type="checkbox" value="true" required /> I accept the{" "}
-          <Link href="/terms">Terms</Link> and <Link href="/privacy-policy">Privacy Policy</Link>
-        </label>
-        <button disabled={pending}>Create workspace</button>
-        {state.error && <p role="alert">{state.error}</p>}
-      </form>
-    </main>
-  );
-}
+import { redirect } from "next/navigation";
+import { NoteItLogo } from "@/components/note-it-logo";
+import { resolveAuthDestination } from "@/lib/auth/destination";
+import { WorkspaceForm } from "./workspace-form";
+export const dynamic = "force-dynamic";
+export default async function OnboardingPage() { const destination = await resolveAuthDestination(); if (destination !== "/onboarding") redirect(destination as never); return <main className="auth onboarding-page"><section className="auth-panel onboarding-panel" aria-labelledby="workspace-title"><div className="auth-brand"><NoteItLogo className="auth-logo"/></div><ol className="onboarding-progress" aria-label="Onboarding progress"><li className="active">Workspace</li><li>Business details</li><li>Ready</li></ol><div className="auth-intro"><p>Step 1 of 3</p><h1 id="workspace-title">Create your typing-centre workspace</h1><span>We only need the essentials. You can add operational details later.</span></div><WorkspaceForm/></section></main>; }

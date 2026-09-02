@@ -1,6 +1,39 @@
 -- Batch B: atomic, idempotent workspace provisioning for authenticated users.
 -- The caller supplies business facts only; tenant identity, owner role, plan,
 -- slug, and authorization are derived and enforced inside this transaction.
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, email, full_name)
+  values (
+    new.id,
+    lower(new.email),
+    nullif(trim(coalesce(new.raw_user_meta_data ->> 'full_name', '')), '')
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+revoke all on function public.handle_new_auth_user() from public, anon, authenticated;
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_auth_user();
+
+insert into public.profiles (id, email, full_name)
+select
+  user_record.id,
+  lower(user_record.email),
+  nullif(trim(coalesce(user_record.raw_user_meta_data ->> 'full_name', '')), '')
+from auth.users user_record
+where not exists (select 1 from public.profiles profile where profile.id = user_record.id)
+on conflict (id) do nothing;
+
 create or replace function public.provision_current_user_workspace(
   workspace_name text,
   workspace_location text,

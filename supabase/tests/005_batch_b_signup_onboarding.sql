@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(20);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
@@ -12,6 +12,8 @@ select has_function(
   array['text', 'text', 'text', 'text'],
   'atomic workspace provisioning function exists'
 );
+select has_trigger('auth', 'users', 'on_auth_user_created', 'new Auth users receive a profile');
+select is((select count(*)::integer from public.profiles where id in ('b0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002')), 2, 'the Auth trigger creates both profiles');
 select is(
   (select p.prosecdef from pg_proc p where p.oid = 'public.provision_current_user_workspace(text,text,text,text)'::regprocedure),
   true,

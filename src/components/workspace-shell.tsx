@@ -32,8 +32,8 @@ export async function WorkspaceShell({ organizationName, activePath, children }:
       <form action={demoWorkspace ? exitDemoAction : logoutAction}><button className="sidebar-logout" type="submit">{demoWorkspace ? "Exit Demo" : "Log out"}</button></form>
     </aside>
     <section className="app-stage">
-      {demoWorkspace && <aside className="demo-mode-banner"><span><b>Demo Mode</b> · Shared sample data resets every 6 hours. Use sample/non-sensitive files only.</span><span><Link href="/signup">Create Your Workspace</Link><form action={exitDemoAction}><button type="submit">Exit Demo</button></form></span></aside>}
       <DashboardHeader name={name} role={role} organizationName={organizationName} unreadNotifications={unreadNotifications ?? 0} logoutAction={demoWorkspace ? exitDemoAction : logoutAction} />
+      {demoWorkspace && <aside className="demo-mode-banner"><span><b>Demo Mode</b> · Shared sample data resets every 6 hours. Use sample/non-sensitive files only.</span><span><Link href="/signup">Create Your Workspace</Link><form action={exitDemoAction}><button type="submit">Exit Demo</button></form></span></aside>}
       <section className="app-content">{children}</section>
     </section>
     <MobileNavigation canImport={!demoWorkspace && ["owner", "admin"].includes(workspace?.membership.role ?? "")} logoutAction={demoWorkspace ? exitDemoAction : logoutAction} actionLabel={demoWorkspace ? "Exit Demo" : "Log out"} />

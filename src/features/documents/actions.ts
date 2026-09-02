@@ -14,7 +14,6 @@ import {
 import { extractDocument } from "@/lib/document-ai/extract-document";
 import { hasCurrentVersionAlreadyBeenAnalyzed } from "@/lib/document-ai/version-state";
 import { getR2Configuration } from "@/lib/r2/client";
-import { isDemoWorkspace } from "@/lib/demo/workspace";
 import {
   createDocumentObjectKey,
   documentSignedAccessSchema,
@@ -121,8 +120,6 @@ export async function createDocumentUploadSession(
   const context = await workspaceOrUnavailable();
   if (!context) return { ok: false, message: "Your workspace is unavailable." };
 
-  if (isDemoWorkspace({ email: context.user.email, organizationSlug: context.organization.slug }))
-    return { ok: false, message: "File uploads are disabled in the demo workspace." };
   const customerId = toNull(parsed.data.customerId);
   const companyId = toNull(parsed.data.companyId);
   const branchId = toNull(parsed.data.branchId);
@@ -308,8 +305,6 @@ export async function extractUploadedDocument(input: unknown): Promise<SafeResul
   if (!parsed.success) return { ok: false, message: "The document is unavailable." };
   const context = await workspaceOrUnavailable();
   if (!context) return { ok: false, message: "Your workspace is unavailable." };
-  if (isDemoWorkspace({ email: context.user.email, organizationSlug: context.organization.slug }))
-    return { ok: false, message: "Document AI is disabled in the demo workspace." };
   const { data: version } = await context.supabase.from("document_versions")
     .select("id, document_id, object_key, mime_type, upload_status, finalized_at")
     .eq("id", parsed.data.versionId).eq("document_id", parsed.data.documentId)

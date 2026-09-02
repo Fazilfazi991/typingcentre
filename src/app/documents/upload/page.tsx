@@ -4,12 +4,14 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { SmartUploadForm } from "@/features/documents/smart-upload-form";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { DocumentOwnerPicker } from "./document-owner-picker";
+import { isDemoWorkspace } from "@/lib/demo/workspace";
 
 export const dynamic = "force-dynamic";
 
 export default async function SmartDocumentUpload({ searchParams }: { searchParams: Promise<{ customerId?: string; companyId?: string; documentId?: string }> }) {
   const context = await getWorkspaceContext();
   if (!context) redirect("/account-inactive" as never);
+  const demoMode = isDemoWorkspace({ organizationId: context.organization.id, organizationSlug: context.organization.slug });
   const { customerId, companyId, documentId } = await searchParams;
   if ([customerId, companyId, documentId].filter(Boolean).length > 1) notFound();
   const [customerResult, companyResult, documentResult, typesResult] = await Promise.all([
@@ -23,5 +25,5 @@ export default async function SmartDocumentUpload({ searchParams }: { searchPara
   const existingCompany = Array.isArray(documentResult.data?.companies) ? documentResult.data.companies[0] : documentResult.data?.companies;
   if (!customerId && !companyId && !documentId) return <WorkspaceShell organizationName={context.organization.name} activePath="/documents"><header className="page-heading"><Link href="/documents">Back</Link><h1>Add document</h1><p>Choose an owner before uploading a scanned document.</p></header><DocumentOwnerPicker /></WorkspaceShell>;
   const backPath = documentId ? `/documents/${documentId}` : customerId ? `/customers/${customerId}` : `/companies/${companyId}`;
-  return <WorkspaceShell organizationName={context.organization.name} activePath="/documents"><header className="page-heading"><Link href={backPath}>Back</Link><h1>{documentId ? "Upload document version" : "Add document"}</h1><p>Upload a scanned document and review extracted values before saving.</p></header><SmartUploadForm documentId={documentId} customerId={customerId} companyId={companyId} customerName={customerResult.data?.full_name || existingCustomer?.full_name} companyName={companyResult.data?.name || existingCompany?.name} documentTypes={typesResult.data} /></WorkspaceShell>;
+  return <WorkspaceShell organizationName={context.organization.name} activePath="/documents"><header className="page-heading"><Link href={backPath}>Back</Link><h1>{documentId ? "Upload document version" : "Add document"}</h1><p>Upload a scanned document and review extracted values before saving.</p></header>{demoMode && <p className="demo-upload-warning"><b>Shared Demo:</b> Use sample/non-sensitive documents only. Demo data is visible to other visitors and resets regularly.</p>}<SmartUploadForm documentId={documentId} customerId={customerId} companyId={companyId} customerName={customerResult.data?.full_name || existingCustomer?.full_name} companyName={companyResult.data?.name || existingCompany?.name} documentTypes={typesResult.data} /></WorkspaceShell>;
 }

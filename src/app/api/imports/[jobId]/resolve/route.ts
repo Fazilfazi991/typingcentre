@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { isDemoContext } from "@/lib/demo/guard";
 
 type Resolution = "create" | "skip" | "update";
 
 export async function POST(request: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const context = await getWorkspaceContext("/imports/new");
   if (!context || !["owner", "admin"].includes(context.membership.role)) return NextResponse.json({ error: "You are not allowed to resolve duplicates." }, { status: 403 });
+  if (isDemoContext(context)) return NextResponse.json({ error: "Data import is disabled in Demo Mode." }, { status: 403 });
   const { jobId } = await params;
   const body = await request.json() as { rowIds?: string[]; resolution?: Resolution };
   if (!body.rowIds?.length || !body.resolution || !["create", "skip", "update"].includes(body.resolution)) return NextResponse.json({ error: "Choose records and a valid resolution." }, { status: 400 });

@@ -1,10 +1,12 @@
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { isDemoContext } from "@/lib/demo/guard";
 
 const quote = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
 
 export async function GET(_: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const context = await getWorkspaceContext("/imports/new");
   if (!context || !["owner", "admin"].includes(context.membership.role)) return new Response("Not authorized", { status: 403 });
+  if (isDemoContext(context)) return new Response("Data import is disabled in Demo Mode.", { status: 403 });
   const { jobId } = await params;
   const { data: rows } = await context.supabase.from("import_job_rows").select("row_number,status,source_data,normalized_data,issues,resolution").eq("import_job_id", jobId).eq("organization_id", context.organization.id).in("status", ["invalid", "failed", "skipped"]).order("row_number");
   const header = ["Source Row", "Status", "Customer Name", "Company Name", "Source Values", "Error Reason", "Resolution"];

@@ -21,11 +21,9 @@ export function isDemoOrganizationSlug(slug: string | null | undefined) {
 export function isDemoWorkspace(input: {
   email?: string | null;
   organizationSlug?: string | null;
+  organizationId?: string | null;
 }) {
-  const configuredEmail = getConfiguredDemoValue("DEMO_EMAIL") ?? getConfiguredDemoValue("DEMO_USER_EMAIL");
-  return Boolean(
-    configuredEmail &&
-      input.email?.toLowerCase() === configuredEmail.toLowerCase() &&
-      isDemoOrganizationSlug(input.organizationSlug),
-  );
+  const configuredId = process.env.DEMO_ORGANIZATION_ID?.trim();
+  if (configuredId) return input.organizationId === configuredId;
+  return isDemoOrganizationSlug(input.organizationSlug);
 }

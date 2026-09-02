@@ -35,7 +35,7 @@ export async function updateWhatsAppSettingsAction(
   formData: FormData,
 ): Promise<WhatsAppSettingsActionState> {
   const context = await getWorkspaceContext();
-  if (context && isDemoWorkspace({ email: context.user.email, organizationSlug: context.organization.slug }))
+  if (context && isDemoWorkspace({ organizationId: context.organization.id, organizationSlug: context.organization.slug }))
     return { error: "This action is disabled in the demo workspace." };
   if (!context || context.membership.role !== "owner")
     return { error: "Only the workspace owner can manage these settings." };
@@ -89,7 +89,7 @@ export async function sendTestWhatsAppAction(
   _formData: FormData,
 ): Promise<WhatsAppSettingsActionState> {
   const context = await getWorkspaceContext();
-  if (context && isDemoWorkspace({ email: context.user.email, organizationSlug: context.organization.slug }))
+  if (context && isDemoWorkspace({ organizationId: context.organization.id, organizationSlug: context.organization.slug }))
     return { error: "This action is disabled in the demo workspace." };
   if (!context || context.membership.role !== "owner")
     return { error: "Only the workspace owner can send a test WhatsApp." };

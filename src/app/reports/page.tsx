@@ -44,7 +44,7 @@ export default async function ReportsPage({
   const startInstant = serviceBounds ? zonedMidnightUtc(serviceBounds.start,context.organization.timezone) : undefined;
   const endInstant = serviceBounds ? zonedMidnightUtc(serviceBounds.end,context.organization.timezone) : undefined;
   const [{ data: serviceRequests, error: serviceError }, { data: servicePayments, error: paymentError }] = await Promise.all([
-    context.supabase.from("service_requests").select("id,status,total_amount,paid_amount,created_at,completed_at,services(name)")
+    context.supabase.from("service_requests").select("id,status,total_amount,paid_amount,created_at,completed_at,service_catalog(name)")
       .eq("organization_id",context.organization.id).is("archived_at",null).order("created_at",{ascending:false}).limit(1000),
     context.supabase.from("service_payments").select("amount,paid_at").eq("organization_id",context.organization.id).order("paid_at",{ascending:false}).limit(1000),
   ]);
@@ -56,7 +56,7 @@ export default async function ReportsPage({
   const outstanding = (serviceRequests ?? []).filter(item => !["cancelled","rejected"].includes(item.status)).reduce((sum,item) => sum + Number(item.total_amount) - Number(item.paid_amount),0);
   const counts = new Map(requestStatuses.map(status => [status, periodRequests.filter(item => item.status === status).length]));
   const volume = new Map<string,number>();
-  for (const item of periodRequests) { const service = Array.isArray(item.services) ? item.services[0] : item.services; const name = service?.name ?? "Other"; volume.set(name,(volume.get(name) ?? 0) + 1); }
+  for (const item of periodRequests) { const service = Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog; const name = service?.name ?? "Other"; volume.set(name,(volume.get(name) ?? 0) + 1); }
   const requestedPage = typeof params.page === "string" ? Number.parseInt(params.page, 10) : 1;
   const rowsPerPage = 20;
   const totalPages = Math.max(1, Math.ceil(report.documents.length / rowsPerPage));

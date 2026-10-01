@@ -49,7 +49,7 @@ export default async function CustomerDetail({
       .eq("customer_id", customerId)
       .is("archived_at", null)
       .order("expires_on", { ascending: true }),
-    context.supabase.from("service_requests").select("id,request_number,status,total_amount,paid_amount,created_at,services(name)")
+    context.supabase.from("service_requests").select("id,request_number,status,total_amount,paid_amount,created_at,service_catalog(name)")
       .eq("organization_id",context.organization.id).eq("customer_id",customerId).is("archived_at",null).order("created_at",{ascending:false}).limit(30),
   ]);
 
@@ -94,7 +94,7 @@ export default async function CustomerDetail({
       </header>
       <section className="service-summary" aria-label="Customer summary"><div><small>Active service requests</small><b>{activeRequests}</b></div><div><small>Documents</small><b>{documents?.length ?? 0}</b></div><div><small>Upcoming expiries</small><b>{upcomingExpiries}</b></div><div><small>Outstanding balance</small><b>{money(outstandingBalance)}</b></div></section>
       <section className="panel service-card"><div className="service-card-top"><h2>Service history</h2>{canMutate && <Link className="primary-button" href={`/service-requests/new?customerId=${customer.id}${customer.company_id ? `&companyId=${customer.company_id}` : ""}`}>New service request</Link>}</div>
-        {(serviceRequests ?? []).length ? <ul className="service-checklist">{serviceRequests!.map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {(Array.isArray(item.services) ? item.services[0] : item.services)?.name}</Link><small>{new Date(item.created_at).toLocaleDateString("en-AE")}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No service requests yet.</p>}
+        {(serviceRequests ?? []).length ? <ul className="service-checklist">{serviceRequests!.map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {(Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog)?.name}</Link><small>{new Date(item.created_at).toLocaleDateString("en-AE")}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No service requests yet.</p>}
       </section>
       <section className="detail-grid">
         <article className="panel">

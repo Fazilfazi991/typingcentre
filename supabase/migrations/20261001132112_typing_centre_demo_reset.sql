@@ -32,7 +32,7 @@ begin
   join public.companies c on c.organization_id = target_organization_id and (c.licence_number = d.company_licence or (d.company_licence = 'DEMO-PEARL-001' and c.name = 'Pearl Business Setup'))
   where not exists(select 1 from public.customers existing where existing.organization_id = target_organization_id and (existing.email = d.email or existing.full_name = d.full_name));
 
-  insert into public.services(organization_id,code,name,category,description,government_fee,service_fee,expected_days)
+  insert into public.service_catalog(organization_id,code,name,category,description,government_fee,service_fee,expected_days)
   select target_organization_id,d.code,d.name,d.category,'Fictional demo price. Configure actual fees for this workspace.',d.government_fee,d.service_fee,d.expected_days
   from (values
     ('VISA-RENEW','Residence Visa Renewal','Residency & Visa',850.00,220.00,5),
@@ -46,7 +46,7 @@ begin
   on conflict(organization_id,code) do update set name = excluded.name,category = excluded.category,description = excluded.description,
     government_fee = excluded.government_fee,service_fee = excluded.service_fee,expected_days = excluded.expected_days,is_active = true;
 
-  insert into public.service_requirements(organization_id,service_id,name,document_type_id,required,sort_order)
+  insert into public.service_catalog_requirements(organization_id,service_id,name,document_type_id,required,sort_order)
   select target_organization_id,s.id,d.name,t.id,d.required,d.sort_order
   from (values
     ('VISA-RENEW','Passport',true,10),('VISA-RENEW','Emirates ID',true,20),
@@ -54,9 +54,9 @@ begin
     ('TRADE-RENEW','Trade Licence',true,10),('DOC-ATTEST','Original document',false,10),
     ('VISIT-VISA','Passport',true,10)
   ) as d(code,name,required,sort_order)
-  join public.services s on s.organization_id = target_organization_id and s.code = d.code
+  join public.service_catalog s on s.organization_id = target_organization_id and s.code = d.code
   left join public.organization_document_types t on t.organization_id = target_organization_id and t.name = d.name
-  where not exists(select 1 from public.service_requirements r where r.organization_id = target_organization_id and r.service_id = s.id and r.name = d.name);
+  where not exists(select 1 from public.service_catalog_requirements r where r.organization_id = target_organization_id and r.service_id = s.id and r.name = d.name);
 
   select d.id into eid_id from public.documents d where d.organization_id = target_organization_id and d.document_number = 'DEMO-SR-EID-001';
   if eid_id is null then
@@ -87,7 +87,7 @@ begin
     select c.id,c.company_id into customer_row from public.customers c where c.organization_id = target_organization_id
       and (c.email = demo.customer_email or lower(c.full_name) = replace(split_part(demo.customer_email,'@',1),'.',' '))
     order by case when c.email = demo.customer_email then 0 else 1 end limit 1;
-    select s.id,s.government_fee+s.service_fee as total into service_row from public.services s where s.organization_id = target_organization_id and s.code = demo.service_code;
+    select s.id,s.government_fee+s.service_fee as total into service_row from public.service_catalog s where s.organization_id = target_organization_id and s.code = demo.service_code;
     if customer_row.id is null or service_row.id is null then raise exception 'Demo customer or service missing: %',demo.seed_reference; end if;
     select id into request_id from public.service_requests where organization_id = target_organization_id and external_reference = demo.seed_reference;
     if request_id is null then
@@ -179,8 +179,8 @@ begin
   delete from public.service_payments where organization_id = target_organization_id;
   delete from public.service_request_requirements where organization_id = target_organization_id;
   delete from public.service_requests where organization_id = target_organization_id;
-  delete from public.service_requirements where organization_id = target_organization_id;
-  delete from public.services where organization_id = target_organization_id;
+  delete from public.service_catalog_requirements where organization_id = target_organization_id;
+  delete from public.service_catalog where organization_id = target_organization_id;
   delete from public.service_request_counters where organization_id = target_organization_id;
   delete from public.documents where organization_id = target_organization_id;
   delete from public.customers where organization_id = target_organization_id;

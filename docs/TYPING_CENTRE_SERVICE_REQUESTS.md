@@ -4,11 +4,11 @@ This demo branch starts from `codex/core-workspace-operational-flow` (`ba350fb`)
 
 ## Schema and access
 
-`20261001131700_typing_centre_service_requests.sql` adds `services`, `service_requirements`, `service_requests`, `service_request_requirements`, `service_payments`, and private request counters. New foreign keys carry `organization_id`. RLS follows the active workspace member and owner policies. Trigger functions generate request numbers, copy requirements, validate transitions and attached document ownership, derive payment totals, and add activity events. New follow-ups can point to a request belonging to the same customer.
+`20261001131700_typing_centre_service_requests.sql` adds `service_catalog`, `service_catalog_requirements`, `service_requests`, `service_request_requirements`, `service_payments`, and private request counters. `20261001140105_typing_centre_status_history.sql` adds append-only `service_request_status_history`. New foreign keys carry `organization_id`. RLS follows the active workspace member and owner policies. Trigger functions generate request numbers, copy requirements, validate transitions and attached document ownership, derive payment totals, and add activity and status history events. New follow-ups can point to a request belonging to the same customer.
 
 The catalog holds each tenant's prices. The government fee is an editable tenant estimate, not a global official fee. Existing requests keep their copied prices and checklist when the catalog changes.
 
-`20261001132112_typing_centre_demo_reset.sql` extends the shared demo reset to remove request data before customer and document data, then restores fictional typing centre cases. The guarded `supabase/seeds/hosted-typing-centre-demo.sql` can seed the same cases in the dedicated `note-it-demo` workspace after the baseline hosted seed.
+`20261001132112_typing_centre_demo_reset.sql` extends the shared demo reset to remove request data before customer and document data, then restores fictional typing centre cases. The new project has a confirmed fictional Auth owner and was bootstrapped once with `supabase/seeds/bootstrap-new-typing-centre-demo.sql`. The older hosted seed scripts are for the previous QA environment.
 
 ## Demo walkthrough
 
@@ -21,4 +21,4 @@ The seed also includes waiting, processing, action required, collection, complet
 
 ## Verification
 
-Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`. With Docker Desktop running, run `npm run db:reset` and `npm run db:test` for the pgTAP integration checks, including tenant isolation, checklist copying, transition guards, document attachment, and payment derivation. The repo's hosted migration ledger differs from local history; reconcile it before applying these migrations to a hosted database, as described in `supabase/README.md`.
+The ordered baseline is already applied to `ycyiserusoilhrpmszzp`: its ledger has 39 matching migrations. Check the linked CLI ref and remote ledger before any future push. Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`. With Docker Desktop running, run `npm run db:reset` and `npm run db:test` for the pgTAP integration checks. On the hosted demo, `supabase/verification/tenant_isolation.sql` verifies checklist copying, required-document blocking, the full status path, payment derivation, activity and status history, and cross-tenant reads and writes inside a rollback-only transaction. `supabase/verification/workspace_operations.sql` verifies owner CRUD on companies, branches, customers, document metadata, renewals, and follow-ups with rollback. The local browser was checked against the new project for login, dashboard, services, requests, customer 360, documents, renewals, follow-ups, calendar, and reports. Quick Scan's entry route loaded, but its R2 upload and AI extraction require the server credentials listed in `.env.example`; they were not exercised end to end.

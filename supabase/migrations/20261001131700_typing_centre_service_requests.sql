@@ -1,5 +1,5 @@
 -- Typing centre operations. All links to existing records include organization_id.
-create table public.services (
+create table public.service_catalog (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
   code text not null check (code ~ '^[A-Z0-9_-]{2,30}$'),
@@ -15,7 +15,7 @@ create table public.services (
   unique (organization_id,id), unique (organization_id,code)
 );
 
-create table public.service_requirements (
+create table public.service_catalog_requirements (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
   service_id uuid not null,
@@ -26,7 +26,7 @@ create table public.service_requirements (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (organization_id,id),
-  foreign key (organization_id,service_id) references public.services(organization_id,id) on delete cascade,
+  foreign key (organization_id,service_id) references public.service_catalog(organization_id,id) on delete cascade,
   foreign key (organization_id,document_type_id) references public.organization_document_types(organization_id,id) on delete restrict
 );
 
@@ -67,7 +67,7 @@ create table public.service_requests (
   unique (organization_id,id,customer_id),
   foreign key (organization_id,customer_id) references public.customers(organization_id,id) on delete restrict,
   foreign key (organization_id,company_id) references public.companies(organization_id,id) on delete restrict,
-  foreign key (organization_id,service_id) references public.services(organization_id,id) on delete restrict,
+  foreign key (organization_id,service_id) references public.service_catalog(organization_id,id) on delete restrict,
   foreign key (organization_id,assigned_to) references public.organization_memberships(organization_id,user_id) on delete restrict
 );
 
@@ -118,16 +118,16 @@ create index service_requests_assigned_idx on public.service_requests(organizati
 create index service_request_requirements_request_idx on public.service_request_requirements(organization_id,service_request_id,sort_order);
 create index service_payments_request_idx on public.service_payments(organization_id,service_request_id,paid_at desc);
 
-create trigger services_updated before update on public.services for each row execute function public.set_updated_at();
-create trigger service_requirements_updated before update on public.service_requirements for each row execute function public.set_updated_at();
+create trigger services_updated before update on public.service_catalog for each row execute function public.set_updated_at();
+create trigger service_requirements_updated before update on public.service_catalog_requirements for each row execute function public.set_updated_at();
 create trigger service_requests_updated before update on public.service_requests for each row execute function public.set_updated_at();
 create trigger service_request_requirements_updated before update on public.service_request_requirements for each row execute function public.set_updated_at();
 
 create function public.prepare_service_request() returns trigger language plpgsql security definer set search_path = '' as $$
-declare service_row public.services%rowtype; sequence_number bigint;
+declare service_row public.service_catalog%rowtype; sequence_number bigint;
 begin
   if (select auth.uid()) is null or not security.is_organization_owner(new.organization_id) then raise exception 'Active workspace owner required'; end if;
-  select * into service_row from public.services where id = new.service_id and organization_id = new.organization_id and is_active;
+  select * into service_row from public.service_catalog where id = new.service_id and organization_id = new.organization_id and is_active;
   if not found then raise exception 'Service is unavailable'; end if;
   if not exists (select 1 from public.customers where organization_id = new.organization_id and id = new.customer_id and archived_at is null) then raise exception 'Customer is unavailable'; end if;
   if new.company_id is not null and not exists (select 1 from public.customers where organization_id = new.organization_id and id = new.customer_id and company_id = new.company_id) then raise exception 'Customer does not belong to this company'; end if;
@@ -176,7 +176,7 @@ create function public.copy_service_requirements() returns trigger language plpg
 begin
   insert into public.service_request_requirements(organization_id,service_request_id,name,document_type_id,required,sort_order)
   select new.organization_id,new.id,r.name,r.document_type_id,r.required,r.sort_order
-  from public.service_requirements r where r.organization_id = new.organization_id and r.service_id = new.service_id;
+  from public.service_catalog_requirements r where r.organization_id = new.organization_id and r.service_id = new.service_id;
   insert into public.activity_logs(organization_id,actor_user_id,entity_type,entity_id,message)
   values(new.organization_id,(select auth.uid()),'service_request',new.id,'Created service request ' || new.request_number);
   return new;
@@ -255,8 +255,8 @@ begin
 end $$;
 
 create trigger service_request_prepare before insert on public.service_requests for each row execute function public.prepare_service_request();
-create trigger services_prevent_tenant_transfer before update on public.services for each row execute function public.prevent_tenant_transfer();
-create trigger service_requirements_prevent_tenant_transfer before update on public.service_requirements for each row execute function public.prevent_tenant_transfer();
+create trigger services_prevent_tenant_transfer before update on public.service_catalog for each row execute function public.prevent_tenant_transfer();
+create trigger service_requirements_prevent_tenant_transfer before update on public.service_catalog_requirements for each row execute function public.prevent_tenant_transfer();
 create trigger service_request_validate before update on public.service_requests for each row execute function public.validate_service_request_update();
 create trigger service_request_copy after insert on public.service_requests for each row execute function public.copy_service_requirements();
 create trigger service_request_log after update on public.service_requests for each row execute function public.log_service_request_change();
@@ -269,20 +269,20 @@ create trigger service_follow_up_log after insert on public.follow_ups for each 
 revoke all on function public.prepare_service_request(), public.copy_service_requirements(), public.log_service_request_change(),
   public.log_service_requirement_change(), public.prepare_service_payment(), public.apply_service_payment(), public.log_service_follow_up() from public, anon, authenticated;
 
-alter table public.services enable row level security;
-alter table public.service_requirements enable row level security;
+alter table public.service_catalog enable row level security;
+alter table public.service_catalog_requirements enable row level security;
 alter table public.service_request_counters enable row level security;
 alter table public.service_requests enable row level security;
 alter table public.service_request_requirements enable row level security;
 alter table public.service_payments enable row level security;
 
-create policy services_read on public.services for select to authenticated using (security.can_access_organization(organization_id));
-create policy services_insert on public.services for insert to authenticated with check (security.is_organization_owner(organization_id));
-create policy services_update on public.services for update to authenticated using (security.is_organization_owner(organization_id)) with check (security.is_organization_owner(organization_id));
-create policy requirements_read on public.service_requirements for select to authenticated using (security.can_access_organization(organization_id));
-create policy requirements_insert on public.service_requirements for insert to authenticated with check (security.is_organization_owner(organization_id));
-create policy requirements_update on public.service_requirements for update to authenticated using (security.is_organization_owner(organization_id)) with check (security.is_organization_owner(organization_id));
-create policy requirements_delete on public.service_requirements for delete to authenticated using (security.is_organization_owner(organization_id));
+create policy services_read on public.service_catalog for select to authenticated using (security.can_access_organization(organization_id));
+create policy services_insert on public.service_catalog for insert to authenticated with check (security.is_organization_owner(organization_id));
+create policy services_update on public.service_catalog for update to authenticated using (security.is_organization_owner(organization_id)) with check (security.is_organization_owner(organization_id));
+create policy requirements_read on public.service_catalog_requirements for select to authenticated using (security.can_access_organization(organization_id));
+create policy requirements_insert on public.service_catalog_requirements for insert to authenticated with check (security.is_organization_owner(organization_id));
+create policy requirements_update on public.service_catalog_requirements for update to authenticated using (security.is_organization_owner(organization_id)) with check (security.is_organization_owner(organization_id));
+create policy requirements_delete on public.service_catalog_requirements for delete to authenticated using (security.is_organization_owner(organization_id));
 create policy requests_read on public.service_requests for select to authenticated using (security.can_access_organization(organization_id));
 create policy requests_insert on public.service_requests for insert to authenticated with check (security.is_organization_owner(organization_id));
 create policy requests_update on public.service_requests for update to authenticated using (security.is_organization_owner(organization_id)) with check (security.is_organization_owner(organization_id));
@@ -291,12 +291,12 @@ create policy request_requirements_update on public.service_request_requirements
 create policy payments_read on public.service_payments for select to authenticated using (security.can_access_organization(organization_id));
 create policy payments_insert on public.service_payments for insert to authenticated with check (security.is_organization_owner(organization_id));
 
-grant select,insert,update on public.services,public.service_requirements to authenticated;
+grant select,insert,update on public.service_catalog,public.service_catalog_requirements to authenticated;
 grant select,insert on public.service_requests to authenticated;
 grant update(company_id,assigned_to,status,priority,source,application_reference,external_reference,
   government_fee,other_cost,service_fee,discount,expected_completion_at,notes,archived_at)
   on public.service_requests to authenticated;
-grant delete on public.service_requirements to authenticated;
+grant delete on public.service_catalog_requirements to authenticated;
 grant select on public.service_request_requirements to authenticated;
 grant update(status,document_id) on public.service_request_requirements to authenticated;
 grant select on public.service_payments to authenticated;

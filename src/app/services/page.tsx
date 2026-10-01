@@ -13,8 +13,8 @@ export default async function ServicesPage({ searchParams }: { searchParams: Pro
   if (!context) redirect("/account-inactive" as never);
   const params = await searchParams;
   const [{ data: services, error: servicesError }, { data: requirements }, { data: documentTypes }] = await Promise.all([
-    context.supabase.from("services").select("*").eq("organization_id",context.organization.id).order("category").order("name"),
-    context.supabase.from("service_requirements").select("*").eq("organization_id",context.organization.id).order("sort_order"),
+    context.supabase.from("service_catalog").select("*").eq("organization_id",context.organization.id).order("category").order("name"),
+    context.supabase.from("service_catalog_requirements").select("*").eq("organization_id",context.organization.id).order("sort_order"),
     context.supabase.from("organization_document_types").select("id,name").eq("organization_id",context.organization.id).eq("is_active",true).order("name"),
   ]);
   if (servicesError) throw servicesError;

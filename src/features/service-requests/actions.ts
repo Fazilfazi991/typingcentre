@@ -38,7 +38,7 @@ export async function createServiceAction(form: FormData) {
   }).safeParse(Object.fromEntries(form));
   if (!parsed.success) return fail("/services", "Check the service details and prices.");
   const value = parsed.data;
-  const { error } = await context.supabase.from("services").insert({
+  const { error } = await context.supabase.from("service_catalog").insert({
     organization_id: context.organization.id, code: value.code, name: value.name,
     category: value.category, description: optional(value.description),
     government_fee: value.governmentFee, service_fee: value.serviceFee, expected_days: value.expectedDays,
@@ -53,7 +53,7 @@ export async function addServiceRequirementAction(form: FormData) {
   const serviceId = text(form, "serviceId");
   const parsed = z.object({ name: z.string().trim().min(2).max(160), documentTypeId: z.union([uuid,z.literal("")]), sortOrder: z.coerce.number().int().min(0).max(999) }).safeParse(Object.fromEntries(form));
   if (!uuid.safeParse(serviceId).success || !parsed.success) return fail("/services", "Check the checklist item.");
-  const { error } = await context.supabase.from("service_requirements").insert({
+  const { error } = await context.supabase.from("service_catalog_requirements").insert({
     organization_id: context.organization.id, service_id: serviceId, name: parsed.data.name,
     document_type_id: optional(parsed.data.documentTypeId), required: form.get("required") === "on",
     sort_order: parsed.data.sortOrder,
@@ -69,7 +69,7 @@ export async function updateServiceAction(form: FormData) {
     governmentFee: money, serviceFee: money, expectedDays: z.coerce.number().int().min(0).max(3650) }).safeParse(Object.fromEntries(form));
   if (!uuid.safeParse(serviceId).success || !parsed.success) return fail("/services", "Check the service details and prices.");
   const value = parsed.data;
-  const { error } = await context.supabase.from("services").update({ name: value.name, description: optional(value.description),
+  const { error } = await context.supabase.from("service_catalog").update({ name: value.name, description: optional(value.description),
     government_fee: value.governmentFee, service_fee: value.serviceFee, expected_days: value.expectedDays })
     .eq("organization_id",context.organization.id).eq("id",serviceId);
   if (error) return fail("/services", safeDatabaseError(error));
@@ -80,7 +80,7 @@ export async function updateServiceAction(form: FormData) {
 export async function deleteServiceRequirementAction(form: FormData) {
   const context = await workspace(); const serviceId = text(form,"serviceId"); const requirementId = text(form,"requirementId");
   if (!uuid.safeParse(serviceId).success || !uuid.safeParse(requirementId).success) return fail("/services", "Checklist item unavailable.");
-  const { error } = await context.supabase.from("service_requirements").delete()
+  const { error } = await context.supabase.from("service_catalog_requirements").delete()
     .eq("organization_id",context.organization.id).eq("service_id",serviceId).eq("id",requirementId);
   if (error) return fail("/services", safeDatabaseError(error));
   revalidatePath("/services");
@@ -91,9 +91,9 @@ export async function toggleServiceAction(form: FormData) {
   const context = await workspace();
   const serviceId = text(form, "serviceId");
   if (!uuid.safeParse(serviceId).success) return fail("/services", "Invalid service.");
-  const { data: service } = await context.supabase.from("services").select("is_active").eq("organization_id",context.organization.id).eq("id",serviceId).maybeSingle();
+  const { data: service } = await context.supabase.from("service_catalog").select("is_active").eq("organization_id",context.organization.id).eq("id",serviceId).maybeSingle();
   if (!service) return fail("/services", "Service unavailable.");
-  const { error } = await context.supabase.from("services").update({ is_active: !service.is_active }).eq("organization_id",context.organization.id).eq("id",serviceId);
+  const { error } = await context.supabase.from("service_catalog").update({ is_active: !service.is_active }).eq("organization_id",context.organization.id).eq("id",serviceId);
   if (error) return fail("/services", safeDatabaseError(error));
   revalidatePath("/services");
   redirect(`/services#service-${serviceId}` as never);

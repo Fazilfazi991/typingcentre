@@ -14,7 +14,7 @@ export default async function NewServiceRequestPage({ searchParams }: { searchPa
   const [{ data: customers }, { data: companies }, { data: services }, { data: members }] = await Promise.all([
     context.supabase.from("customers").select("id,full_name,company_id").eq("organization_id",context.organization.id).is("archived_at",null).order("full_name").limit(500),
     context.supabase.from("companies").select("id,name").eq("organization_id",context.organization.id).is("archived_at",null).order("name").limit(500),
-    context.supabase.from("services").select("id,name,category,government_fee,service_fee,expected_days").eq("organization_id",context.organization.id).eq("is_active",true).order("name"),
+    context.supabase.from("service_catalog").select("id,name,category,government_fee,service_fee,expected_days").eq("organization_id",context.organization.id).eq("is_active",true).order("name"),
     context.supabase.from("organization_memberships").select("user_id,role").eq("organization_id",context.organization.id).eq("status","active"),
   ]);
   const selectedCustomer = typeof params.customerId === "string" ? params.customerId : "";

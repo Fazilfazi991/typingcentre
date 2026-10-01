@@ -14,7 +14,7 @@ export default async function ServiceRequestDetail({ params, searchParams }: { p
   if (!context) redirect("/account-inactive" as never);
   const { id } = await params;
   const query = await searchParams;
-  const { data: item } = await context.supabase.from("service_requests").select("*,customers(full_name,phone),companies(name),services(name,category)").eq("organization_id",context.organization.id).eq("id",id).maybeSingle();
+  const { data: item } = await context.supabase.from("service_requests").select("*,customers(full_name,phone),companies(name),service_catalog(name,category)").eq("organization_id",context.organization.id).eq("id",id).maybeSingle();
   if (!item) notFound();
   const [{ data: requirements }, { data: payments }, { data: followUps }, { data: activity }, { data: documents }, { data: members }] = await Promise.all([
     context.supabase.from("service_request_requirements").select("*,documents(id,display_name,expires_on)").eq("organization_id",context.organization.id).eq("service_request_id",id).order("sort_order"),
@@ -24,7 +24,7 @@ export default async function ServiceRequestDetail({ params, searchParams }: { p
     context.supabase.from("documents").select("id,display_name,document_type_id,expires_on").eq("organization_id",context.organization.id).eq("customer_id",item.customer_id).is("archived_at",null).order("created_at",{ascending:false}).limit(100),
     context.supabase.from("organization_memberships").select("user_id,role").eq("organization_id",context.organization.id).eq("status","active"),
   ]);
-  const customer = one(item.customers); const service = one(item.services); const company = one(item.companies);
+  const customer = one(item.customers); const service = one(item.service_catalog); const company = one(item.companies);
   const status = item.status as RequestStatus;
   const balance = Number(item.total_amount) - Number(item.paid_amount);
   const assignedName = item.assigned_to ? item.assigned_to === context.user.id ? context.profile.full_name || "Me" : item.assigned_to.slice(0,8) : "Unassigned";

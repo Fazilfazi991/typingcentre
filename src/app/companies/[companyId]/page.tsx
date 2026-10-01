@@ -25,7 +25,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ comp
       .eq("company_id", companyId)
       .is("archived_at", null)
       .order("name"),
-    context.supabase.from("service_requests").select("id,request_number,status,total_amount,paid_amount,customer_id,customers(full_name),services(name)")
+    context.supabase.from("service_requests").select("id,request_number,status,total_amount,paid_amount,customer_id,customers(full_name),service_catalog(name)")
       .eq("organization_id",context.organization.id).eq("company_id",companyId).is("archived_at",null).order("created_at",{ascending:false}).limit(30),
   ]);
 
@@ -63,7 +63,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ comp
         )}
       </header>
       <section className="panel service-card"><div className="service-card-top"><h2>Service requests</h2><Link className="primary-button" href={`/service-requests/new?companyId=${company.id}`}>New request</Link></div>
-        {(serviceRequests ?? []).length ? <ul className="service-checklist">{serviceRequests!.map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {(Array.isArray(item.services) ? item.services[0] : item.services)?.name}</Link><small>{(Array.isArray(item.customers) ? item.customers[0] : item.customers)?.full_name} · {money(item.total_amount)}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No service requests for this company.</p>}
+        {(serviceRequests ?? []).length ? <ul className="service-checklist">{serviceRequests!.map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {(Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog)?.name}</Link><small>{(Array.isArray(item.customers) ? item.customers[0] : item.customers)?.full_name} · {money(item.total_amount)}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No service requests for this company.</p>}
       </section>
       <section className="detail-grid">
         <article className="panel">

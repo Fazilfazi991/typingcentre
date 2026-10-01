@@ -8,6 +8,8 @@ import { followUpDatePath, followUpTodayBounds } from "@/lib/follow-ups/filters"
 import { renewalDetailPath } from "@/lib/renewals/workflow";
 import { measureAsync } from "@/lib/performance/timing";
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { money, statusLabels, type RequestStatus } from "@/lib/service-requests/workflow";
+import "../service-requests/service-requests.css";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +64,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   }));
   if (snapshotError) throw snapshotError;
   const { count: customerCount } = await context.supabase.from("customers").select("id", { count: "exact", head: true }).eq("organization_id", context.organization.id).eq("is_active", true);
+  const [{ data: serviceRequests }, { data: overdueFollowUps }] = await Promise.all([
+    context.supabase.from("service_requests").select("id,request_number,status,priority,created_at,expected_completion_at,total_amount,paid_amount,customers(full_name),services(name)")
+      .eq("organization_id",context.organization.id).is("archived_at",null).order("created_at",{ascending:false}).limit(500),
+    context.supabase.from("follow_ups").select("id,due_at,note,customer_id,customers(full_name)").eq("organization_id",context.organization.id)
+      .in("status",["pending","overdue"]).lt("due_at",new Date().toISOString()).order("due_at").limit(5),
+  ]);
   const payload = (snapshot ?? {}) as any;
   const metrics = payload.metrics ?? {};
   const daysFor = (record: any) => calculateDaysRemaining(record.expires_on, now, context.organization.timezone);
@@ -85,9 +93,30 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     { label: "61–90 days", value: insights.upcoming.days61To90 },
   ];
   const chartMax = Math.max(...expirationBuckets.map((bucket) => bucket.value), 1);
+  const serviceRows = serviceRequests ?? [];
+  const localDay = (iso: string) => new Intl.DateTimeFormat("en-CA",{timeZone:context.organization.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(iso));
+  const todaysRequests = serviceRows.filter(item => localDay(item.created_at) === today);
+  const waiting = serviceRows.filter(item => item.status === "waiting_documents");
+  const processing = serviceRows.filter(item => ["submitted","processing","action_required"].includes(item.status));
+  const collection = serviceRows.filter(item => item.status === "ready_for_collection");
+  const actionRequired = serviceRows.filter(item => item.status === "action_required");
+  const overdueRequests = serviceRows.filter(item => item.expected_completion_at && new Date(item.expected_completion_at) < now && !["completed","cancelled","rejected"].includes(item.status));
+  const serviceAttention = [...new Map([...actionRequired,...overdueRequests,...waiting,...collection].map(item => [item.id,item])).values()].slice(0,8);
+  const oneService = <T,>(item: T | T[] | null) => Array.isArray(item) ? item[0] : item;
 
   return <WorkspaceShell organizationName={context.organization.name} activePath="/dashboard">
-    <header className="page-heading dashboard-hero overview-kpi-heading"><div className="overview-copy"><h1>Document Overview</h1><p>Monitor upcoming expiries and renewal actions.</p></div></header>
+    <header className="page-heading dashboard-hero overview-kpi-heading"><div className="overview-copy"><h1>Typing Centre Overview</h1><p>Keep today&apos;s requests, follow-ups and document expiries moving.</p></div><Link className="primary-button" href="/service-requests/new">New service request</Link></header>
+    <section className="service-dashboard-kpis" aria-label="Operational metrics">{[
+      ["New requests today",todaysRequests.length,"/service-requests?date="+today],
+      ["Waiting for documents",waiting.length,"/service-requests?status=waiting_documents"],
+      ["In processing",processing.length,"/service-requests?status=processing"],
+      ["Ready for collection",collection.length,"/service-requests?status=ready_for_collection"],
+      ["Follow-ups today",followUps,"/follow-ups?date=today"],
+      ["Expiring soon",week + month,renewalRangePath("30d")],
+    ].map(([label,value,href]) => <Link className="service-dashboard-kpi" href={String(href)} key={label}><small>{label}</small><b>{value}</b><span>View →</span></Link>)}</section>
+    <section className="service-dashboard-columns"><article className="panel service-card"><div className="service-card-top"><h2>Today&apos;s Service Requests</h2><Link href="/service-requests">View all</Link></div>{todaysRequests.length ? <ul className="service-checklist">{todaysRequests.slice(0,6).map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {oneService(item.services)?.name}</Link><small>{oneService(item.customers)?.full_name} · {money(item.total_amount)}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No new requests today.</p>}</article>
+    <article className="panel service-card"><div className="service-card-top"><h2>Needs Attention</h2><Link href="/service-requests">Open requests</Link></div>{serviceAttention.length ? <ul className="service-checklist">{serviceAttention.map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {oneService(item.services)?.name}</Link><small>{oneService(item.customers)?.full_name}{item.expected_completion_at && new Date(item.expected_completion_at) < now ? " · Overdue" : ""}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No service requests need attention.</p>}{(overdueFollowUps ?? []).length > 0 && <div><h3>Overdue follow-ups</h3>{overdueFollowUps!.map(item => <p key={item.id}><Link href={`/customers/${item.customer_id}`}>{oneService(item.customers)?.full_name || "Customer"}</Link> · {item.note || "Follow-up"}</p>)}</div>}{attention.length > 0 && <p><Link href={renewalRangePath("7d")}>{attention.length} urgent document expiries →</Link></p>}</article></section>
+    <header className="page-heading dashboard-hero overview-kpi-heading"><div className="overview-copy"><h2>Document health</h2><p>Monitor upcoming expiries and renewal actions.</p></div></header>
     {insights.total === 0 && (customerCount ?? 0) === 0 && <section className="first-run-card" aria-labelledby="first-run-title"><span className="first-run-mark" aria-hidden>✓</span><div><p className="landing-eyebrow">Workspace ready</p><h2 id="first-run-title">Add your first customer</h2><p>Customer records keep every document, expiry and follow-up connected.</p><div className="first-run-actions"><Link className="primary-button" href="/customers/new">Add your first customer</Link><Link className="secondary-button" href="/documents/upload">Upload your first document</Link><Link href="/imports/new">Import existing data</Link></div></div></section>}
     <section className="metric-grid overview-kpi-grid" aria-label="Document overview metrics">{cards.map(([label, value, icon, color, description, actionLabel, href, ariaLabel]) => <Link href={href} aria-label={ariaLabel} className={`metric-card overview-kpi-card metric-${color}`} key={label}><span className="overview-kpi-main"><span className="metric-icon" aria-hidden><MetricGlyph name={icon}/></span><span className="metric-copy"><small>{label}</small><strong>{value}</strong><em>{description}</em></span></span><span className="overview-kpi-footer"><span>{actionLabel}</span><span className="metric-arrow" aria-hidden>→</span></span></Link>)}</section>
     <section className="dashboard-primary"><article className="panel attention-panel"><div className="panel-heading"><div className="section-title"><span className="section-icon" aria-hidden>DOC</span><div><h2>Needs Attention</h2><p>Expired and next-seven-day documents.</p></div></div><Link className="ghost-action" href={renewalRangePath("expired")}>View expired</Link></div>{attention.length ? <div className="attention-table-wrap"><table className="attention-table"><thead><tr><th>Customer / company</th><th>Document</th><th>Expiry</th><th>Remaining</th><th>Status</th></tr></thead><tbody>{attention.map((document: any) => { const customer = relation(document.customers); const company = relation(document.companies); const type = relation(document.organization_document_types); const owner = customer?.full_name || company?.name || "Document record"; const [status, tone] = statusFor(document.expires_on, document.status); const detailRange = (daysFor(document) ?? 0) < 0 ? "expired" : "7d"; const href = renewalDetailPath(document.id, detailRange); return <tr className="attention-clickable-row" key={document.id}><td><Link href={href}><span className="person"><span className="initial-avatar">{initials(owner)}</span><span><b>{owner}</b><small>{customer && company?.name ? company.name : "Document record"}</small></span></span></Link></td><td><Link href={href}><b>{type?.name || document.document_number || "Document"}</b><small>{document.document_number || "No number"}</small></Link></td><td><Link href={href}><time className={`expiry-${tone}`}>{formatDisplayDate(document.expires_on)}</time></Link></td><td><Link href={href}>{getRelativeExpiryText(document.expires_on, now)}</Link></td><td><Link href={href}><span className={`status-pill ${tone}`}>{status}</span></Link></td></tr>; })}</tbody></table></div> : <div className="dashboard-empty"><span aria-hidden>OK</span><b>Nothing needs attention</b><p>Your upcoming document expiries will appear here.</p></div>}</article>

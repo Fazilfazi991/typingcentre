@@ -4,6 +4,8 @@ import { ArchiveDialog } from "@/components/archive-dialog";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { archiveBranchAction, archiveCompanyAction } from "@/features/crm/actions";
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { money, statusLabels, type RequestStatus } from "@/lib/service-requests/workflow";
+import "../../service-requests/service-requests.css";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +17,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ comp
   }
 
   const { companyId } = await params;
-  const [{ data: company }, { data: branches }] = await Promise.all([
+  const [{ data: company }, { data: branches }, { data: serviceRequests }] = await Promise.all([
     context.supabase.from("companies").select("*").eq("id", companyId).maybeSingle(),
     context.supabase
       .from("branches")
@@ -23,6 +25,8 @@ export default async function CompanyDetail({ params }: { params: Promise<{ comp
       .eq("company_id", companyId)
       .is("archived_at", null)
       .order("name"),
+    context.supabase.from("service_requests").select("id,request_number,status,total_amount,paid_amount,customer_id,customers(full_name),services(name)")
+      .eq("organization_id",context.organization.id).eq("company_id",companyId).is("archived_at",null).order("created_at",{ascending:false}).limit(30),
   ]);
 
   if (!company) {
@@ -58,6 +62,9 @@ export default async function CompanyDetail({ params }: { params: Promise<{ comp
           </div>
         )}
       </header>
+      <section className="panel service-card"><div className="service-card-top"><h2>Service requests</h2><Link className="primary-button" href={`/service-requests/new?companyId=${company.id}`}>New request</Link></div>
+        {(serviceRequests ?? []).length ? <ul className="service-checklist">{serviceRequests!.map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {(Array.isArray(item.services) ? item.services[0] : item.services)?.name}</Link><small>{(Array.isArray(item.customers) ? item.customers[0] : item.customers)?.full_name} · {money(item.total_amount)}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No service requests for this company.</p>}
+      </section>
       <section className="detail-grid">
         <article className="panel">
           <h2>Documents and renewals</h2>

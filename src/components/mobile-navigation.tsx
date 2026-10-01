@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import styles from "./mobile-navigation.module.css";
 
-type Destination = { label: string; href: string; icon: "dashboard" | "customers" | "documents" | "calendar" | "companies" | "renewals" | "followups" | "reports" | "settings" | "import" };
+type Destination = { label: string; href: string; icon: "dashboard" | "customers" | "documents" | "calendar" | "companies" | "renewals" | "followups" | "reports" | "settings" | "import" | "services" };
 
 function Icon({ name }: { name: Destination["icon"] | "more" | "close" }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -16,7 +16,7 @@ function Icon({ name }: { name: Destination["icon"] | "more" | "close" }) {
   if (name === "calendar") return <svg viewBox="0 0 24 24" {...common}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>;
   if (name === "companies") return <svg viewBox="0 0 24 24" {...common}><path d="M4 21V6l8-3v18M12 9h8v12M7 9h2M7 13h2M7 17h2M15 13h2M15 17h2"/></svg>;
   if (name === "renewals") return <svg viewBox="0 0 24 24" {...common}><path d="M20 7v5h-5M4 17v-5h5M6.1 8A7 7 0 0 1 18 6l2 6M18 16a7 7 0 0 1-11.9 2L4 12"/></svg>;
-  if (name === "followups") return <svg viewBox="0 0 24 24" {...common}><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>;
+  if (name === "followups" || name === "services") return <svg viewBox="0 0 24 24" {...common}><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>;
   if (name === "reports") return <svg viewBox="0 0 24 24" {...common}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>;
   if (name === "settings") return <svg viewBox="0 0 24 24" {...common}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>;
   if (name === "close") return <svg viewBox="0 0 24 24" {...common}><path d="m6 6 12 12M18 6 6 18"/></svg>;
@@ -25,7 +25,7 @@ function Icon({ name }: { name: Destination["icon"] | "more" | "close" }) {
 
 const primary: Destination[] = [
   { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
-  { label: "Customers", href: "/customers", icon: "customers" },
+  { label: "Service Requests", href: "/service-requests", icon: "services" },
   { label: "Documents", href: "/documents", icon: "documents" },
   { label: "Calendar", href: "/calendar", icon: "calendar" },
 ];
@@ -35,6 +35,8 @@ export function MobileNavigation({ canImport, logoutAction, actionLabel = "Log o
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const more: Destination[] = [
+    { label: "Customers", href: "/customers", icon: "customers" },
+    { label: "Services", href: "/services", icon: "services" },
     { label: "Companies", href: "/companies", icon: "companies" },
     { label: "Renewals", href: "/renewals?range=30d", icon: "renewals" },
     { label: "Follow-ups", href: "/follow-ups", icon: "followups" },

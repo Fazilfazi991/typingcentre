@@ -8,7 +8,7 @@ import { isDemoWorkspace } from "@/lib/demo/workspace";
 import { MobileNavigation } from "@/components/mobile-navigation";
 
 const nav = [
-  ["Dashboard", "/dashboard", "⊞"], ["Customers", "/customers", "♙"], ["Companies", "/companies", "▥"],
+  ["Dashboard", "/dashboard", "⊞"], ["Service Requests", "/service-requests", "☷"], ["Services", "/services", "▦"], ["Customers", "/customers", "♙"], ["Companies", "/companies", "▥"],
   ["Documents", "/documents", "▤"], ["Import Data", "/imports/new", "⇧"], ["Renewals", "/renewals?range=30d", "↻"], ["Calendar", "/calendar", "▦"], ["Follow-ups", "/follow-ups", "☷"],
   ["Reports", "/reports", "▥"], ["Settings", "/settings", "⚙"],
 ];

@@ -7,6 +7,8 @@ import { archiveCustomerAction, createFollowUpAction } from "@/features/crm/acti
 import { customerCanMutate, customerEditPath, isSafeUuid } from "@/features/crm/customer-utils";
 import { formatDisplayDate, getRelativeExpiryText } from "@/lib/dates/expiry";
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { money, statusLabels, type RequestStatus } from "@/lib/service-requests/workflow";
+import "../../service-requests/service-requests.css";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,7 @@ export default async function CustomerDetail({
 
   const queryParams = await searchParams;
   const error = typeof queryParams.error === "string" ? queryParams.error : "";
-  const [{ data: customer }, { data: followUps }, { data: activity }, { data: documents, error: documentsError }] = await Promise.all([
+  const [{ data: customer }, { data: followUps }, { data: activity }, { data: documents, error: documentsError }, { data: serviceRequests }] = await Promise.all([
     context.supabase
       .from("customers")
       .select("*,companies(name),branches(name)")
@@ -47,12 +49,17 @@ export default async function CustomerDetail({
       .eq("customer_id", customerId)
       .is("archived_at", null)
       .order("expires_on", { ascending: true }),
+    context.supabase.from("service_requests").select("id,request_number,status,total_amount,paid_amount,created_at,services(name)")
+      .eq("organization_id",context.organization.id).eq("customer_id",customerId).is("archived_at",null).order("created_at",{ascending:false}).limit(30),
   ]);
 
   if (!customer) notFound();
   if (documentsError) throw documentsError;
 
   const canMutate = customerCanMutate(customer);
+  const activeRequests = (serviceRequests ?? []).filter(item => !["completed","cancelled","rejected"].includes(item.status)).length;
+  const outstandingBalance = (serviceRequests ?? []).reduce((sum,item) => sum + Number(item.total_amount) - Number(item.paid_amount),0);
+  const upcomingExpiries = (documents ?? []).filter(item => { const days = Math.ceil((new Date(`${item.expires_on}T00:00:00Z`).getTime() - Date.now()) / 86400000); return days >= 0 && days <= 30; }).length;
 
   return (
     <WorkspaceShell organizationName={context.organization.name}>
@@ -85,6 +92,10 @@ export default async function CustomerDetail({
           </div>
         )}
       </header>
+      <section className="service-summary" aria-label="Customer summary"><div><small>Active service requests</small><b>{activeRequests}</b></div><div><small>Documents</small><b>{documents?.length ?? 0}</b></div><div><small>Upcoming expiries</small><b>{upcomingExpiries}</b></div><div><small>Outstanding balance</small><b>{money(outstandingBalance)}</b></div></section>
+      <section className="panel service-card"><div className="service-card-top"><h2>Service history</h2>{canMutate && <Link className="primary-button" href={`/service-requests/new?customerId=${customer.id}${customer.company_id ? `&companyId=${customer.company_id}` : ""}`}>New service request</Link>}</div>
+        {(serviceRequests ?? []).length ? <ul className="service-checklist">{serviceRequests!.map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {(Array.isArray(item.services) ? item.services[0] : item.services)?.name}</Link><small>{new Date(item.created_at).toLocaleDateString("en-AE")}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No service requests yet.</p>}
+      </section>
       <section className="detail-grid">
         <article className="panel">
           <h2>Identity and contact</h2>

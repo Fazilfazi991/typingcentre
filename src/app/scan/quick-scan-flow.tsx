@@ -19,12 +19,13 @@ import {
 import { uploadDocumentBinary } from "@/features/documents/smart-upload-form";
 import { SearchableOwnerCombobox } from "@/components/searchable-owner-combobox";
 import type { DocumentExtraction } from "@/lib/document-ai/types";
+import { attachScannedDocument } from "@/features/service-requests/actions";
 
 type TypeOption = { id: string; name: string };
-type Props = { documentTypes: TypeOption[] };
+type Props = { documentTypes: TypeOption[]; linkedRequirement?: { id: string; requestId: string; customerId: string; customerName: string } };
 const accepted = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
-export function QuickScanFlow({ documentTypes }: Props) {
+export function QuickScanFlow({ documentTypes, linkedRequirement }: Props) {
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -41,10 +42,10 @@ export function QuickScanFlow({ documentTypes }: Props) {
     | "review"
     | "extraction_failed"
     | "saved"
-  >("owner");
+  >(linkedRequirement ? "capture" : "owner");
   const [ownerKind, setOwnerKind] = useState<"customer" | "company">("customer");
-  const [ownerId, setOwnerId] = useState("");
-  const [ownerLabel, setOwnerLabel] = useState("");
+  const [ownerId, setOwnerId] = useState(linkedRequirement?.customerId ?? "");
+  const [ownerLabel, setOwnerLabel] = useState(linkedRequirement?.customerName ?? "");
   const [typeId, setTypeId] = useState("");
   const [typeQuery, setTypeQuery] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -506,7 +507,12 @@ export function QuickScanFlow({ documentTypes }: Props) {
               const result = await finalizePendingScan({ pendingScanId, displayName: review.displayName, documentNumber: review.documentNumber, issueDate: review.issueDate, expiryDate: review.expiryDate, extractionData: edited });
               setSaving(false);
               if (!result.ok) { setMessage(result.message); return; }
-              setSavedDocumentId(result.data.documentId); setStep("saved"); router.refresh();
+              setSavedDocumentId(result.data.documentId);
+              if (linkedRequirement) {
+                const attached = await attachScannedDocument({ requirementId: linkedRequirement.id, documentId: result.data.documentId });
+                setMessage(attached.ok ? "Document attached to the service checklist." : `Document saved, but it could not be attached: ${attached.message}`);
+              }
+              setStep("saved"); router.refresh();
             }}>{saving ? "Saving…" : "Confirm & Save"}</button>
           </section>
         )}
@@ -514,11 +520,13 @@ export function QuickScanFlow({ documentTypes }: Props) {
           <div className="scan-saved">
             <span className="success-mark" aria-hidden>✓</span><p>Document saved</p><h1>{resolvedType.name}</h1>
             <p>{ownerLabel}{review.expiryDate ? ` · Expires ${review.expiryDate}` : ""}</p>
+            {message && <p role="status">{message}</p>}
             <div className="scan-capture-actions">
               <button className="scan-primary" onClick={() => { setPendingScanId(""); setFile(null); setPreview(""); setResolvedType(null); setExtraction(null); setReview({}); setMessage(""); setStep("capture"); }}>Scan another</button>
               <button className="scan-secondary" onClick={() => router.push(savedDocumentId ? `/documents/${savedDocumentId}` : "/documents")}>View document</button>
             </div>
             <button className="scan-secondary" onClick={() => router.push(ownerKind === "customer" ? `/customers/${ownerId}` : `/companies/${ownerId}`)}>View {ownerKind}</button>
+            {linkedRequirement && <button className="scan-primary" onClick={() => router.push(`/service-requests/${linkedRequirement.requestId}#checklist`)}>Back to service request</button>}
           </div>
         )}
       </section>

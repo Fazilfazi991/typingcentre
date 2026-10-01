@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { calculateDaysRemaining } from "@/lib/dates/expiry";
 import { documentStatus, documentTypeName, getReportData, ownerName } from "@/lib/reports/data";
-import { reportFiltersFromSearchParams, reportRangeLabel } from "@/lib/reports/filters";
+import { reportFiltersFromSearchParams, reportRangeBounds, reportRangeLabel, zonedMidnightUtc } from "@/lib/reports/filters";
 import { getWorkspaceContext } from "@/lib/workspace/context";
+import { money, requestStatuses, statusLabels } from "@/lib/service-requests/workflow";
+import "../service-requests/service-requests.css";
 import { ReportsFilterToolbar } from "./reports-filter-toolbar";
 import "./reports.module.css";
 
@@ -38,6 +40,23 @@ export default async function ReportsPage({
   if (!context) redirect("/account-inactive" as never);
   const now = new Date();
   const report = await getReportData(context, filters, now);
+  const serviceBounds = reportRangeBounds(filters,now,context.organization.timezone);
+  const startInstant = serviceBounds ? zonedMidnightUtc(serviceBounds.start,context.organization.timezone) : undefined;
+  const endInstant = serviceBounds ? zonedMidnightUtc(serviceBounds.end,context.organization.timezone) : undefined;
+  const [{ data: serviceRequests, error: serviceError }, { data: servicePayments, error: paymentError }] = await Promise.all([
+    context.supabase.from("service_requests").select("id,status,total_amount,paid_amount,created_at,completed_at,services(name)")
+      .eq("organization_id",context.organization.id).is("archived_at",null).order("created_at",{ascending:false}).limit(1000),
+    context.supabase.from("service_payments").select("amount,paid_at").eq("organization_id",context.organization.id).order("paid_at",{ascending:false}).limit(1000),
+  ]);
+  if (serviceError || paymentError) throw serviceError || paymentError;
+  const inPeriod = (date: string | null) => !!date && (!startInstant || (date >= startInstant && date < endInstant!));
+  const periodRequests = (serviceRequests ?? []).filter(item => inPeriod(item.created_at));
+  const completedCount = (serviceRequests ?? []).filter(item => item.status === "completed" && inPeriod(item.completed_at)).length;
+  const collected = (servicePayments ?? []).filter(item => inPeriod(item.paid_at)).reduce((sum,item) => sum + Number(item.amount),0);
+  const outstanding = (serviceRequests ?? []).filter(item => !["cancelled","rejected"].includes(item.status)).reduce((sum,item) => sum + Number(item.total_amount) - Number(item.paid_amount),0);
+  const counts = new Map(requestStatuses.map(status => [status, periodRequests.filter(item => item.status === status).length]));
+  const volume = new Map<string,number>();
+  for (const item of periodRequests) { const service = Array.isArray(item.services) ? item.services[0] : item.services; const name = service?.name ?? "Other"; volume.set(name,(volume.get(name) ?? 0) + 1); }
   const requestedPage = typeof params.page === "string" ? Number.parseInt(params.page, 10) : 1;
   const rowsPerPage = 20;
   const totalPages = Math.max(1, Math.ceil(report.documents.length / rowsPerPage));
@@ -70,7 +89,7 @@ export default async function ReportsPage({
         <div>
           <p className="eyebrow">Workspace insights</p>
           <h1>Reports</h1>
-          <p>Workspace insights for expiries, documents and follow-ups.</p>
+          <p>Workspace insights for services, payments, expiries, documents and follow-ups.</p>
         </div>
         <a className="secondary-button reports-export" href={exportHref}>
           <span aria-hidden>↓</span> Export CSV
@@ -78,8 +97,12 @@ export default async function ReportsPage({
       </header>
       <ReportsFilterToolbar filters={filters} types={report.types} />
       <p className="reports-context">
-        Reporting period: <b>{reportRangeLabel(filters)}</b>
+        Reporting period: <b>{filters.range === "all" ? "All records" : reportRangeLabel(filters)}</b>
       </p>
+      <section aria-label="Service operations report"><h2 className="reports-section-title">Service operations</h2><p>Request volume and collections follow the selected reporting period. Outstanding balance covers all open requests.</p>
+        <div className="service-dashboard-kpis"><article className="service-dashboard-kpi"><small>Requests created</small><b>{periodRequests.length}</b></article><article className="service-dashboard-kpi"><small>Services completed</small><b>{completedCount}</b></article><article className="service-dashboard-kpi"><small>Payments collected</small><b>{money(collected)}</b></article><article className="service-dashboard-kpi"><small>Outstanding balance</small><b>{money(outstanding)}</b></article></div>
+        <div className="service-dashboard-columns"><article className="panel service-card"><h3>Requests by status</h3><ul className="service-checklist">{requestStatuses.map(status => <li key={status}><span>{statusLabels[status]}</span><b>{counts.get(status)}</b></li>)}</ul></article><article className="panel service-card"><h3>Volume by service</h3><ul className="service-checklist">{[...volume.entries()].sort((a,b) => b[1] - a[1]).map(([name,count]) => <li key={name}><span>{name}</span><b>{count}</b></li>)}</ul>{!volume.size && <p className="empty-state">No service requests in this period.</p>}</article></div>
+      </section>
       <section aria-label="Expiry summary">
         <h2 className="reports-section-title">Expiry summary</h2>
         <div className="metric-grid reports-metric-grid">

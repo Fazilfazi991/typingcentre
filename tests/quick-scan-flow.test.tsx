@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   upload: vi.fn(),
   push: vi.fn(),
   refresh: vi.fn(),
+  attach: vi.fn(),
 }));
 
 vi.mock("next/link", () => ({
@@ -40,12 +41,13 @@ vi.mock("@/app/scan/actions", () => ({
   createQuickScanCustomer: vi.fn(),
 }));
 vi.mock("@/features/documents/smart-upload-form", () => ({ uploadDocumentBinary: mocks.upload }));
+vi.mock("@/features/service-requests/actions", () => ({ attachScannedDocument: mocks.attach }));
 
 import { QuickScanFlow } from "@/app/scan/quick-scan-flow";
 
-function renderFlow() {
+function renderFlow(linkedRequirement?: { id: string; requestId: string; customerId: string; customerName: string }) {
   return render(
-    <QuickScanFlow documentTypes={[
+    <QuickScanFlow linkedRequirement={linkedRequirement} documentTypes={[
         { id: documentTypeId, name: "Passport" },
         { id: drivingLicenceId, name: "Driving Licence" },
         { id: tradeLicenceId, name: "Trade Licence" },
@@ -92,6 +94,7 @@ beforeEach(() => {
   mocks.finalize.mockReset();
   mocks.push.mockReset();
   mocks.refresh.mockReset();
+  mocks.attach.mockReset().mockResolvedValue({ ok: true, requestId: "99999999-9999-4999-8999-999999999999" });
 });
 
 const extraction = {
@@ -129,6 +132,27 @@ describe("Quick Scan Stage 3 client orchestration", () => {
     expect(mocks.push).toHaveBeenCalledWith("/documents/88888888-8888-4888-8888-888888888888");
     await user.click(screen.getByRole("button", { name: "View customer" }));
     expect(mocks.push).toHaveBeenCalledWith(`/customers/${customerId}`);
+  });
+
+  it("returns a new scan to its request after attaching the saved document", async () => {
+    const user = userEvent.setup();
+    const requestId = "99999999-9999-4999-8999-999999999999";
+    const requirementId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const documentId = "88888888-8888-4888-8888-888888888888";
+    mocks.extract.mockResolvedValueOnce({ ok: true, data: { extraction, cached: false } });
+    mocks.finalize.mockResolvedValueOnce({ ok: true, data: { documentId, customerId, companyId: null } });
+    renderFlow({ id: requirementId, requestId, customerId, customerName: "Demo Customer" });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input,{ target: { files: [new File(["safe"],"passport.pdf",{ type: "application/pdf" })] } });
+    await user.click(screen.getByRole("button",{ name: "Process document" }));
+    await screen.findByText("Detected document");
+    await user.click(screen.getByRole("button",{ name: "Continue" }));
+    await screen.findByText("Review document");
+    await user.click(screen.getByRole("button",{ name: "Confirm & Save" }));
+    await screen.findByText("Document attached to the service checklist.");
+    expect(mocks.attach).toHaveBeenCalledWith({ requirementId, documentId });
+    await user.click(screen.getByRole("button",{ name: "Back to service request" }));
+    expect(mocks.push).toHaveBeenCalledWith(`/service-requests/${requestId}#checklist`);
   });
 
   it("keeps the pending scan when extraction fails and supports manual review recovery", async () => {

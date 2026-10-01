@@ -36,7 +36,7 @@ export default async function SettingsPage() {
       .limit(25),
   ]);
   const canManage = context.membership.role === "owner";
-  const canImport = !demoMode && ["owner", "admin"].includes(context.membership.role);
+  const canImport = demoMode || ["owner", "admin"].includes(context.membership.role);
   const failure = latest?.status === "failed"
     ? latest.meta_error_details || latest.meta_error_message || latest.meta_error_title || "Meta rejected the delivery."
     : null;
@@ -63,7 +63,7 @@ export default async function SettingsPage() {
       </div>
     </section>
     <section className="panel" id="data-import">
-      <div className="panel-heading"><div><h2>Data Import</h2><p>{demoMode ? "Data import is disabled in Demo Mode." : "Bring in existing customer and document records without leaving your workspace."}</p></div>{canImport && <Link className="primary-button" href="/imports/new">Import Existing Data</Link>}</div>
+      <div className="panel-heading"><div><h2>Data Import</h2><p>{demoMode ? "Try the fictional sample import. Your own data belongs in a private workspace." : "Bring in existing customer and document records without leaving your workspace."}</p></div>{canImport && <Link className="primary-button" href="/imports/new">Import Existing Data</Link>}</div>
       {imports?.length ? <><div className="table-wrap settings-import-table"><table><thead><tr><th>File</th><th>Date</th><th>Created</th><th>Updated</th><th>Skipped</th><th>Status</th></tr></thead><tbody>{imports.map((item: any) => <tr key={item.id}><td><Link href={`/settings/data-import/${item.id}`}>{item.file_name}</Link><small>{item.source_format.toUpperCase()} · {item.total_rows} detected</small></td><td>{new Intl.DateTimeFormat("en-AE", { dateStyle: "medium" }).format(new Date(item.created_at))}</td><td>{item.customers_created + item.companies_created + item.documents_created}</td><td>{item.records_updated}</td><td>{item.records_skipped}</td><td><Link href={`/settings/data-import/${item.id}`}>View details</Link></td></tr>)}</tbody></table></div><div className="settings-import-mobile">{imports.map((item:any)=><Link href={`/settings/data-import/${item.id}`} key={item.id}><b>{item.file_name}</b><small>{item.source_format.toUpperCase()} · {item.total_rows} rows · {statusLabel(item.status)}</small><span>{new Intl.DateTimeFormat("en-AE",{dateStyle:"medium"}).format(new Date(item.created_at))}<i aria-hidden>→</i></span></Link>)}</div></> : <p className="settings-note">No imports yet. Your completed imports will appear here.</p>}
     </section>
   </WorkspaceShell>;

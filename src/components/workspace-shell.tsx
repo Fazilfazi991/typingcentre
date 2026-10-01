@@ -20,7 +20,7 @@ export async function WorkspaceShell({ organizationName, activePath, children }:
   const initials = organizationName.split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
   const name = workspace?.profile.full_name || workspace?.user.email?.split("@")[0] || "User";
   const demoWorkspace = workspace ? isDemoWorkspace({ organizationId: workspace.organization.id, organizationSlug: workspace.organization.slug }) : false;
-  const canImport = !demoWorkspace && ["owner", "admin"].includes(workspace?.membership.role ?? "");
+  const canImport = demoWorkspace || ["owner", "admin"].includes(workspace?.membership.role ?? "");
   const role = workspace?.membership.role?.replace(/_/g, " ") || "Member";
   const { count: unreadNotifications } = workspace ? await workspace.supabase.from("notifications").select("id", { count: "exact", head: true }).eq("organization_id", workspace.organization.id).is("read_at", null) : { count: 0 };
 

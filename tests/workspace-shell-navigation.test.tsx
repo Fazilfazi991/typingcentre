@@ -40,12 +40,23 @@ describe("workspace import navigation", () => {
     expect(screen.getByTestId("mobile-import-access").textContent).toBe("true");
   });
 
-  it.each([{ role: "member", demo: false }, { role: "owner", demo: true }])("hides import for $role when demo is $demo", async ({ role, demo }) => {
+  it.each([{ role: "member", demo: false }])("hides import for $role when demo is $demo", async ({ role, demo }) => {
     vi.mocked(getWorkspaceContext).mockResolvedValue(workspace(role) as never);
     vi.mocked(isDemoWorkspace).mockReturnValue(demo);
     render(await WorkspaceShell({ organizationName: "Test Workspace", children: null }));
 
     expect(within(screen.getByLabelText("Workspace navigation")).queryByRole("link", { name: "Import Data" })).toBeNull();
     expect(screen.getByTestId("mobile-import-access").textContent).toBe("false");
+  });
+
+  it("shows Import Data between Documents and Renewals in Demo Mode", async () => {
+    vi.mocked(getWorkspaceContext).mockResolvedValue(workspace("owner") as never);
+    vi.mocked(isDemoWorkspace).mockReturnValue(true);
+    render(await WorkspaceShell({ organizationName: "Demo Workspace", children: null }));
+    const links = within(screen.getByLabelText("Workspace navigation")).getAllByRole("link").map(link => link.textContent);
+    const index = links.findIndex(label => label?.includes("Import Data"));
+    expect(links[index-1]).toContain("Documents");
+    expect(links[index+1]).toContain("Renewals");
+    expect(screen.getByTestId("mobile-import-access").textContent).toBe("true");
   });
 });

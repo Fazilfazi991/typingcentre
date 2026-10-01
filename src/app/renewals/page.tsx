@@ -8,7 +8,7 @@ import { renewalDetailPath, renewalRemainingText, workflowStatus } from "@/lib/r
 import { getWorkspaceContext } from "@/lib/workspace/context";
 
 export const dynamic = "force-dynamic";
-const ranges: RenewalRange[] = ["expired", "today", "7d", "30d", "90d"];
+const ranges: RenewalRange[] = ["expired", "today", "7d", "30d", "90d", "future"];
 
 export default async function RenewalsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const rawRange = (await searchParams).range;

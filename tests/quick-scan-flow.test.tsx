@@ -45,6 +45,16 @@ vi.mock("@/features/service-requests/actions", () => ({ attachScannedDocument: m
 
 import { QuickScanFlow } from "@/app/scan/quick-scan-flow";
 
+it("offers a clearly labeled simulation only when a demo requirement link is supplied", () => {
+  const linkedRequirement = { id: "88888888-8888-4888-8888-888888888888", requestId: "99999999-9999-4999-8999-999999999999", customerId, customerName: "Ahmed Hassan" };
+  const view = render(<QuickScanFlow linkedRequirement={linkedRequirement} documentTypes={[]} demoSimulationHref={`/scan/demo?requirementId=${linkedRequirement.id}`}/>);
+  expect(screen.getByRole("link", { name: /Review demo passport/ }).getAttribute("href")).toBe(`/scan/demo?requirementId=${linkedRequirement.id}`);
+  expect(screen.getByText(/No file is uploaded and no AI runs/)).toBeTruthy();
+  view.unmount();
+  render(<QuickScanFlow linkedRequirement={linkedRequirement} documentTypes={[]}/>);
+  expect(screen.queryByRole("link", { name: /Review demo passport/ })).toBeNull();
+});
+
 function renderFlow(linkedRequirement?: { id: string; requestId: string; customerId: string; customerName: string }) {
   return render(
     <QuickScanFlow linkedRequirement={linkedRequirement} documentTypes={[

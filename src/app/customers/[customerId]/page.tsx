@@ -56,9 +56,17 @@ export default async function CustomerDetail({
   if (!customer) notFound();
   if (documentsError) throw documentsError;
 
+  const requestIds = (serviceRequests ?? []).map(item => item.id);
+  const [{ data: payments }, { data: missingRequirements }] = await Promise.all([
+    requestIds.length ? context.supabase.from("service_payments").select("id,amount,method,paid_at,service_request_id").eq("organization_id", context.organization.id).in("service_request_id", requestIds).order("paid_at", { ascending: false }).limit(20) : Promise.resolve({ data: [] }),
+    requestIds.length ? context.supabase.from("service_request_requirements").select("id,service_request_id").eq("organization_id", context.organization.id).eq("status", "missing").in("service_request_id", requestIds).limit(1) : Promise.resolve({ data: [] }),
+  ]);
+  const quickScanHref = missingRequirements?.[0] ? `/scan?requirementId=${missingRequirements[0].id}` : "/scan";
+  const requestNumber = new Map((serviceRequests ?? []).map(item => [item.id, item.request_number]));
+
   const canMutate = customerCanMutate(customer);
   const activeRequests = (serviceRequests ?? []).filter(item => !["completed","cancelled","rejected"].includes(item.status)).length;
-  const outstandingBalance = (serviceRequests ?? []).reduce((sum,item) => sum + Number(item.total_amount) - Number(item.paid_amount),0);
+  const outstandingBalance = (serviceRequests ?? []).filter(item => !["cancelled", "rejected"].includes(item.status)).reduce((sum,item) => sum + Number(item.total_amount) - Number(item.paid_amount),0);
   const upcomingExpiries = (documents ?? []).filter(item => { const days = Math.ceil((new Date(`${item.expires_on}T00:00:00Z`).getTime() - Date.now()) / 86400000); return days >= 0 && days <= 30; }).length;
 
   return (
@@ -68,19 +76,18 @@ export default async function CustomerDetail({
           <Link href="/customers">Back to customers</Link>
           <h1>{customer.full_name}</h1>
           <p>
-            {customer.customer_type} - {customer.nationality || "Nationality not recorded"}{" "}
+            {customer.phone} · {customer.nationality || "Nationality not recorded"}{customer.companies?.name ? ` · ${customer.companies.name}` : ""}{" "}
             {customer.archived_at && <span className="status-badge">Archived</span>}
           </p>
           {error && <p className="form-error">{decodeURIComponent(error)}</p>}
         </div>
         {canMutate && (
           <div className="customer-detail-actions">
-            <Link className="primary-button" href={customerEditPath(customer.id)}>
-              Edit customer
-            </Link>
-            <Link className="primary-button" href={`/documents/upload?customerId=${customer.id}`}>
-              Add document
-            </Link>
+            <Link className="primary-button" href={`/service-requests/new?customerId=${customer.id}${customer.company_id ? `&companyId=${customer.company_id}` : ""}`}>New service</Link>
+            <Link className="secondary-button" href={quickScanHref}>Quick Scan</Link>
+            <Link className="secondary-button" href={`/documents/upload?customerId=${customer.id}`}>Add document</Link>
+            <a className="secondary-button" href="#customer-follow-ups">Add follow-up</a>
+            <Link className="secondary-button" href={customerEditPath(customer.id)}>Edit</Link>
             <ArchiveDialog
               action={archiveCustomerAction}
               fields={{ customerId: customer.id }}
@@ -93,10 +100,11 @@ export default async function CustomerDetail({
         )}
       </header>
       <section className="service-summary" aria-label="Customer summary"><div><small>Active service requests</small><b>{activeRequests}</b></div><div><small>Documents</small><b>{documents?.length ?? 0}</b></div><div><small>Upcoming expiries</small><b>{upcomingExpiries}</b></div><div><small>Outstanding balance</small><b>{money(outstandingBalance)}</b></div></section>
-      <section className="panel service-card"><div className="service-card-top"><h2>Service history</h2>{canMutate && <Link className="primary-button" href={`/service-requests/new?customerId=${customer.id}${customer.company_id ? `&companyId=${customer.company_id}` : ""}`}>New service request</Link>}</div>
-        {(serviceRequests ?? []).length ? <ul className="service-checklist">{serviceRequests!.map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {(Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog)?.name}</Link><small>{new Date(item.created_at).toLocaleDateString("en-AE")}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No service requests yet.</p>}
+      <nav className="service-section-nav" aria-label="Customer sections"><a href="#customer-overview">Overview</a><a href="#customer-services">Services</a><a href="#customer-documents">Documents</a><a href="#customer-follow-ups">Follow-ups</a><a href="#customer-payments">Payments</a><a href="#customer-activity">Activity</a></nav>
+      <section className="panel service-card" id="customer-services"><div className="service-card-top"><h2>Service history</h2>{canMutate && <Link className="primary-button" href={`/service-requests/new?customerId=${customer.id}${customer.company_id ? `&companyId=${customer.company_id}` : ""}`}>New service request</Link>}</div>
+        {(serviceRequests ?? []).length ? <ul className="service-checklist">{serviceRequests!.map(item => <li key={item.id}><span><Link href={`/service-requests/${item.id}`}><b>{item.request_number}</b> · {(Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog)?.name}</Link><small>{new Date(item.created_at).toLocaleDateString("en-AE")} · {money(item.total_amount)} · Balance {money(Number(item.total_amount) - Number(item.paid_amount))}</small></span><span className={`service-status status-${item.status}`}>{statusLabels[item.status as RequestStatus]}</span></li>)}</ul> : <p className="empty-state">No service requests yet.</p>}
       </section>
-      <section className="detail-grid">
+      <section className="detail-grid" id="customer-overview">
         <article className="panel">
           <h2>Identity and contact</h2>
           <dl>
@@ -136,7 +144,7 @@ export default async function CustomerDetail({
           <p>{customer.profession || "Profession not recorded"}</p>
           <p>{customer.residential_address || "Address not recorded"}</p>
         </article>
-        <article className="panel">
+        <article className="panel" id="customer-follow-ups">
           <h2>Follow-ups</h2>
           {followUps?.length ? (
             <div className="stack">
@@ -171,7 +179,7 @@ export default async function CustomerDetail({
             </form>
           )}
         </article>
-        <article className="panel">
+        <article className="panel" id="customer-activity">
           <h2>Customer activity</h2>
           {activity?.length ? (
             <div className="stack">
@@ -186,7 +194,8 @@ export default async function CustomerDetail({
             <p className="empty-state">No customer activity yet.</p>
           )}
         </article>
-        <article className="panel">
+        <article className="panel" id="customer-payments"><h2>Payments</h2>{payments?.length ? <div className="stack">{payments.map(payment => <div className="row" key={payment.id}><span><b>{money(payment.amount)} · {payment.method.replaceAll("_", " ")}</b><small>{requestNumber.get(payment.service_request_id) ?? "Service request"} · {new Date(payment.paid_at).toLocaleDateString("en-AE")}</small></span><Link href={`/service-requests/${payment.service_request_id}/receipt`}>Receipt</Link></div>)}</div> : <p className="empty-state">No payments recorded yet.</p>}</article>
+        <article className="panel" id="customer-documents">
           <h2>Documents and renewals</h2>
           {documents?.length ? (
             <div className="stack">

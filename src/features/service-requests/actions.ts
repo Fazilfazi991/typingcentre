@@ -130,42 +130,39 @@ export async function updateServiceRequestStatusAction(form: FormData) {
   const context = await workspace();
   const id = text(form,"requestId"); const next = text(form,"status") as RequestStatus;
   const current = await request(context,id);
-  if (!current || !requestStatuses.includes(next) || !canTransition(current.status as RequestStatus,next)) return fail(`/service-requests/${id}`, "That status change is unavailable.");
+  if (!current || !requestStatuses.includes(next) || !canTransition(current.status as RequestStatus,next)) return { error: "That status change is unavailable." };
   const { error } = await context.supabase.from("service_requests").update({ status: next }).eq("organization_id",context.organization.id).eq("id",id).eq("status",current.status);
-  if (error) return fail(`/service-requests/${id}`, requestError(error));
+  if (error) return { error: requestError(error) };
   revalidatePath(`/service-requests/${id}`); revalidatePath("/service-requests"); revalidatePath("/dashboard");
-  redirect(`/service-requests/${id}?updated=1` as never);
 }
 
 export async function updateServiceRequestDetailsAction(form: FormData) {
   const context = await workspace(); const id = text(form,"requestId");
-  if (!await request(context,id)) return fail("/service-requests", "Request unavailable.");
+  if (!await request(context,id)) return { error: "Request unavailable." };
   const parsed = z.object({ applicationReference: z.string().trim().max(160), externalReference: z.string().trim().max(160),
     otherCost: money, discount: money, notes: z.string().trim().max(3000),
     assignedTo: z.union([uuid,z.literal("")]),
   }).safeParse(Object.fromEntries(form));
-  if (!parsed.success) return fail(`/service-requests/${id}`, "Check the request details.");
+  if (!parsed.success) return { error: "Check the request details." };
   const value = parsed.data;
   const { error } = await context.supabase.from("service_requests").update({
     application_reference: optional(value.applicationReference), external_reference: optional(value.externalReference),
     other_cost: value.otherCost, discount: value.discount, notes: optional(value.notes), assigned_to: optional(value.assignedTo),
   }).eq("organization_id",context.organization.id).eq("id",id);
-  if (error) return fail(`/service-requests/${id}`, requestError(error));
+  if (error) return { error: requestError(error) };
   revalidatePath(`/service-requests/${id}`); revalidatePath("/service-requests");
-  redirect(`/service-requests/${id}?updated=1` as never);
 }
 
 export async function updateRequirementAction(form: FormData) {
   const context = await workspace(); const id = text(form,"requestId"); const requirementId = text(form,"requirementId");
-  if (!await request(context,id) || !uuid.safeParse(requirementId).success) return fail(`/service-requests/${id}`, "Checklist item unavailable.");
+  if (!await request(context,id) || !uuid.safeParse(requirementId).success) return { error: "Checklist item unavailable." };
   const status = text(form,"status"); const documentId = text(form,"documentId");
-  if (!["missing","received","verified","not_required"].includes(status) || (documentId && !uuid.safeParse(documentId).success)) return fail(`/service-requests/${id}`, "Invalid checklist update.");
+  if (!["missing","received","verified","not_required"].includes(status) || (documentId && !uuid.safeParse(documentId).success)) return { error: "Invalid checklist update." };
   const nextStatus = documentId && status === "missing" ? "received" : status;
   const { error } = await context.supabase.from("service_request_requirements").update({ status: nextStatus, document_id: optional(documentId) })
     .eq("organization_id",context.organization.id).eq("service_request_id",id).eq("id",requirementId);
-  if (error) return fail(`/service-requests/${id}`, requestError(error));
+  if (error) return { error: requestError(error) };
   revalidatePath(`/service-requests/${id}`); revalidatePath("/dashboard");
-  redirect(`/service-requests/${id}#checklist` as never);
 }
 
 export async function attachScannedDocument(input: { requirementId: string; documentId: string }) {
@@ -182,25 +179,23 @@ export async function attachScannedDocument(input: { requirementId: string; docu
 
 export async function recordServicePaymentAction(form: FormData) {
   const context = await workspace(); const id = text(form,"requestId");
-  if (!await request(context,id)) return fail("/service-requests", "Request unavailable.");
+  if (!await request(context,id)) return { error: "Request unavailable." };
   const parsed = z.object({ amount: z.coerce.number().positive().max(99999999), method: z.enum(["cash","card","bank_transfer","other"]),
     reference: z.string().trim().max(160), notes: z.string().trim().max(500) }).safeParse(Object.fromEntries(form));
-  if (!parsed.success) return fail(`/service-requests/${id}`, "Check the payment details.");
+  if (!parsed.success) return { error: "Check the payment details." };
   const { error } = await context.supabase.from("service_payments").insert({ organization_id: context.organization.id, service_request_id: id,
     amount: parsed.data.amount, method: parsed.data.method, reference: optional(parsed.data.reference), notes: optional(parsed.data.notes) });
-  if (error) return fail(`/service-requests/${id}`, requestError(error));
+  if (error) return { error: requestError(error) };
   revalidatePath(`/service-requests/${id}`); revalidatePath("/service-requests"); revalidatePath("/dashboard"); revalidatePath("/reports");
-  redirect(`/service-requests/${id}#payments` as never);
 }
 
 export async function createServiceFollowUpAction(form: FormData) {
   const context = await workspace(); const id = text(form,"requestId"); const current = await request(context,id);
-  if (!current) return fail("/service-requests", "Request unavailable.");
+  if (!current) return { error: "Request unavailable." };
   const dueAt = text(form,"dueAt"); const note = text(form,"note");
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dueAt) || note.length > 1000) return fail(`/service-requests/${id}`, "Check the follow-up details.");
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dueAt) || note.length > 1000) return { error: "Check the follow-up details." };
   const { error } = await context.supabase.from("follow_ups").insert({ organization_id: context.organization.id,
     customer_id: current.customer_id, company_id: current.company_id, service_request_id: id, due_at: dubaiDateTimeToUtcISOString(dueAt), note: optional(note) });
-  if (error) return fail(`/service-requests/${id}`, safeDatabaseError(error));
+  if (error) return { error: safeDatabaseError(error) };
   revalidatePath(`/service-requests/${id}`); revalidatePath("/follow-ups"); revalidatePath("/dashboard");
-  redirect(`/service-requests/${id}#follow-ups` as never);
 }

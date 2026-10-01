@@ -8,7 +8,7 @@ import { isDemoWorkspace } from "@/lib/demo/workspace";
 import { MobileNavigation } from "@/components/mobile-navigation";
 
 const nav = [
-  ["Dashboard", "/dashboard", "⊞"], ["Service Requests", "/service-requests", "☷"], ["Services", "/services", "▦"], ["Customers", "/customers", "♙"], ["Companies", "/companies", "▥"],
+  ["Dashboard", "/dashboard", "⊞"], ["Service Requests", "/service-requests", "☷"], ["Customers", "/customers", "♙"], ["Companies", "/companies", "▥"],
   ["Documents", "/documents", "▤"], ["Import Data", "/imports/new", "⇧"], ["Renewals", "/renewals?range=30d", "↻"], ["Calendar", "/calendar", "▦"], ["Follow-ups", "/follow-ups", "☷"],
   ["Reports", "/reports", "▥"], ["Settings", "/settings", "⚙"],
 ];
@@ -25,7 +25,7 @@ export async function WorkspaceShell({ organizationName, activePath, children }:
   return <main className="app-shell">
     <aside className="sidebar" aria-label="Workspace navigation">
       <div className="sidebar-top">
-        <Link className="brand" href="/dashboard" aria-label="Note It dashboard"><NoteItLogo className="brand-logo" /></Link>
+        <Link className="brand" href="/dashboard" aria-label="Note It Typing Centre CRM dashboard"><NoteItLogo className="brand-logo" /><span className="brand-descriptor">Typing Centre CRM</span></Link>
         <nav>{nav.filter(([label]) => label !== "Import Data" || (!demoWorkspace && ["owner", "admin"].includes(workspace?.membership.role ?? ""))).map(([label, href, icon]) => { const active = Boolean(activePath && href.startsWith(activePath)); return href ? <Link href={href} key={label} title={label} className={active ? "nav-active" : ""} aria-current={active ? "page" : undefined}><i aria-hidden>{icon}</i><span>{label}</span></Link> : <span key={label} className="nav-disabled" title={`${label} is coming soon`}><i aria-hidden>{icon}</i><span>{label}</span></span>; })}</nav>
       </div>
       <div className="organization-card"><span className="org-avatar">{initials || "RT"}</span><span><b>{organizationName}</b><small>{demoWorkspace ? "Demo Workspace" : `${workspace?.organization.location || "Workspace"} · ${plan}`}</small></span><span aria-hidden>›</span></div>
@@ -33,7 +33,7 @@ export async function WorkspaceShell({ organizationName, activePath, children }:
     </aside>
     <section className="app-stage">
       <DashboardHeader name={name} role={role} organizationName={organizationName} unreadNotifications={unreadNotifications ?? 0} logoutAction={demoWorkspace ? exitDemoAction : logoutAction} />
-      {demoWorkspace && <aside className="demo-mode-banner"><span><b>Demo Mode</b> · Shared sample data resets every 6 hours. Use sample/non-sensitive files only.</span><span><Link href="/signup">Create Your Workspace</Link><form action={exitDemoAction}><button type="submit">Exit Demo</button></form></span></aside>}
+      {demoWorkspace && <aside className="demo-mode-banner"><span><b>Demo Mode</b> · Fictional shared workspace. Changes may be reset; use sample files only.</span><span><Link href="/signup">Create Your Workspace</Link><form action={exitDemoAction}><button type="submit">Exit Demo</button></form></span></aside>}
       <section className="app-content">{children}</section>
     </section>
     <MobileNavigation canImport={!demoWorkspace && ["owner", "admin"].includes(workspace?.membership.role ?? "")} logoutAction={demoWorkspace ? exitDemoAction : logoutAction} actionLabel={demoWorkspace ? "Exit Demo" : "Log out"} />

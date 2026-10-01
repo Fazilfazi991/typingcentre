@@ -24,7 +24,7 @@ describe("MobileNavigation", () => {
     await user.click(screen.getByRole("button", { name: "More" }));
     expect(screen.getByRole("dialog", { name: "More" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Customers/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Services/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Service catalogue/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Companies/ })).toBeTruthy();
     expect(screen.queryByRole("link", { name: /Import data/ })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Close menu" }));

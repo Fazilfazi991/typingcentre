@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { QuickScanFlow } from "./quick-scan-flow";
 import { notFound } from "next/navigation";
+import { isDemoWorkspace } from "@/lib/demo/workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -19,5 +20,7 @@ export default async function ScanPage({ searchParams }: { searchParams: Promise
     linkedRequirement = { id: requirement.id, requestId: request.id, customerId: request.customer_id, customerName: customer?.full_name ?? "Customer" };
   }
   const { data: documentTypes } = await context.supabase.from("organization_document_types").select("id, name").eq("organization_id", context.organization.id).eq("is_active", true).order("name");
-  return <QuickScanFlow documentTypes={documentTypes ?? []} linkedRequirement={linkedRequirement} />;
+  const demoSimulationHref = linkedRequirement && isDemoWorkspace({ organizationId: context.organization.id, organizationSlug: context.organization.slug })
+    ? `/scan/demo?requirementId=${linkedRequirement.id}` : undefined;
+  return <QuickScanFlow documentTypes={documentTypes ?? []} linkedRequirement={linkedRequirement} demoSimulationHref={demoSimulationHref} />;
 }

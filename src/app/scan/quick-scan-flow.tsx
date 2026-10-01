@@ -22,10 +22,10 @@ import type { DocumentExtraction } from "@/lib/document-ai/types";
 import { attachScannedDocument } from "@/features/service-requests/actions";
 
 type TypeOption = { id: string; name: string };
-type Props = { documentTypes: TypeOption[]; linkedRequirement?: { id: string; requestId: string; customerId: string; customerName: string } };
+type Props = { documentTypes: TypeOption[]; linkedRequirement?: { id: string; requestId: string; customerId: string; customerName: string }; demoSimulationHref?: string };
 const accepted = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
-export function QuickScanFlow({ documentTypes, linkedRequirement }: Props) {
+export function QuickScanFlow({ documentTypes, linkedRequirement, demoSimulationHref }: Props) {
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -358,6 +358,7 @@ export function QuickScanFlow({ documentTypes, linkedRequirement }: Props) {
           <>
             <h1>Capture document</h1>
             <p className="scan-copy">Place the document on a flat surface with good lighting.</p>
+            {demoSimulationHref && <aside className="scan-demo-option"><b>Presenting the demo?</b><p>Open a clearly labeled passport simulation. No file is uploaded and no AI runs.</p><a className="scan-secondary" href={demoSimulationHref}>Review demo passport →</a></aside>}
             {preview ? (
               <div className="scan-preview">
                 <img src={preview} alt="Document preview" />

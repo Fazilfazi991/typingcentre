@@ -30,11 +30,11 @@ export default async function Documents({ searchParams }: { searchParams: Promis
     review_required: "Ready for review",
     confirmed: "Saved",
     failed: "Needs retry",
-    not_started: "Uploaded",
-  }[value ?? "not_started"] ?? "Uploaded");
+    not_started: "Record",
+  }[value ?? "not_started"] ?? "Record");
 
   return <WorkspaceShell organizationName={context.organization.name} activePath="/documents">
-    <header className="page-heading split"><div><p className="eyebrow">Documents</p><h1>Documents</h1><p>{bucket ? `${expiryBucketLabel(bucket)} expiry records.` : "Track uploaded documents and their processing state."}</p></div><Link className="primary-button" href="/documents/upload">Upload document</Link></header>
+    <header className="page-heading split"><div><p className="eyebrow">Documents</p><h1>Documents</h1><p>{bucket ? `${expiryBucketLabel(bucket)} expiry records.` : "Track document records, files and future expiries."}</p></div><Link className="primary-button" href="/documents/upload">Upload document</Link></header>
     <form className="filter-bar">
       <label>Search documents<input name="search" defaultValue={search} placeholder="Search name or document number" /></label>
       {bucket && <input type="hidden" name="expiry" value={bucket} />}

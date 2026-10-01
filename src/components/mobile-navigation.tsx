@@ -36,7 +36,7 @@ export function MobileNavigation({ canImport, logoutAction, actionLabel = "Log o
   const closeRef = useRef<HTMLButtonElement>(null);
   const more: Destination[] = [
     { label: "Customers", href: "/customers", icon: "customers" },
-    { label: "Services", href: "/services", icon: "services" },
+    { label: "Service catalogue", href: "/services", icon: "services" },
     { label: "Companies", href: "/companies", icon: "companies" },
     { label: "Renewals", href: "/renewals?range=30d", icon: "renewals" },
     { label: "Follow-ups", href: "/follow-ups", icon: "followups" },

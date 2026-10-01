@@ -44,19 +44,25 @@ export default async function ReportsPage({
   const startInstant = serviceBounds ? zonedMidnightUtc(serviceBounds.start,context.organization.timezone) : undefined;
   const endInstant = serviceBounds ? zonedMidnightUtc(serviceBounds.end,context.organization.timezone) : undefined;
   const [{ data: serviceRequests, error: serviceError }, { data: servicePayments, error: paymentError }] = await Promise.all([
-    context.supabase.from("service_requests").select("id,status,total_amount,paid_amount,created_at,completed_at,service_catalog(name)")
+    context.supabase.from("service_requests").select("id,status,total_amount,paid_amount,created_at,completed_at,assigned_to,service_catalog(name)")
       .eq("organization_id",context.organization.id).is("archived_at",null).order("created_at",{ascending:false}).limit(1000),
     context.supabase.from("service_payments").select("amount,paid_at").eq("organization_id",context.organization.id).order("paid_at",{ascending:false}).limit(1000),
   ]);
   if (serviceError || paymentError) throw serviceError || paymentError;
   const inPeriod = (date: string | null) => !!date && (!startInstant || (date >= startInstant && date < endInstant!));
   const periodRequests = (serviceRequests ?? []).filter(item => inPeriod(item.created_at));
+  const billed = periodRequests.filter(item => !["cancelled", "rejected"].includes(item.status)).reduce((sum, item) => sum + Number(item.total_amount), 0);
   const completedCount = (serviceRequests ?? []).filter(item => item.status === "completed" && inPeriod(item.completed_at)).length;
   const collected = (servicePayments ?? []).filter(item => inPeriod(item.paid_at)).reduce((sum,item) => sum + Number(item.amount),0);
   const outstanding = (serviceRequests ?? []).filter(item => !["cancelled","rejected"].includes(item.status)).reduce((sum,item) => sum + Number(item.total_amount) - Number(item.paid_amount),0);
   const counts = new Map(requestStatuses.map(status => [status, periodRequests.filter(item => item.status === status).length]));
   const volume = new Map<string,number>();
   for (const item of periodRequests) { const service = Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog; const name = service?.name ?? "Other"; volume.set(name,(volume.get(name) ?? 0) + 1); }
+  const assignedIds = [...new Set(periodRequests.map(item => item.assigned_to).filter((value): value is string => !!value))];
+  const { data: staffProfiles } = assignedIds.length ? await context.supabase.from("profiles").select("id,full_name,email").in("id", assignedIds) : { data: [] };
+  const staffNames = new Map((staffProfiles ?? []).map(profile => [profile.id, profile.full_name || profile.email || "Staff member"]));
+  const workload = new Map<string, number>();
+  for (const item of periodRequests) { const name = item.assigned_to ? staffNames.get(item.assigned_to) ?? "Staff member" : "Unassigned"; workload.set(name, (workload.get(name) ?? 0) + 1); }
   const requestedPage = typeof params.page === "string" ? Number.parseInt(params.page, 10) : 1;
   const rowsPerPage = 20;
   const totalPages = Math.max(1, Math.ceil(report.documents.length / rowsPerPage));
@@ -100,8 +106,10 @@ export default async function ReportsPage({
         Reporting period: <b>{filters.range === "all" ? "All records" : reportRangeLabel(filters)}</b>
       </p>
       <section aria-label="Service operations report"><h2 className="reports-section-title">Service operations</h2><p>Request volume and collections follow the selected reporting period. Outstanding balance covers all open requests.</p>
-        <div className="service-dashboard-kpis"><article className="service-dashboard-kpi"><small>Requests created</small><b>{periodRequests.length}</b></article><article className="service-dashboard-kpi"><small>Services completed</small><b>{completedCount}</b></article><article className="service-dashboard-kpi"><small>Payments collected</small><b>{money(collected)}</b></article><article className="service-dashboard-kpi"><small>Outstanding balance</small><b>{money(outstanding)}</b></article></div>
+        <div className="service-dashboard-kpis"><article className="service-dashboard-kpi"><small>Total requests</small><b>{periodRequests.length}</b></article><article className="service-dashboard-kpi"><small>New</small><b>{counts.get("new")}</b></article><article className="service-dashboard-kpi"><small>Processing</small><b>{counts.get("processing")}</b></article><article className="service-dashboard-kpi"><small>Action required</small><b>{counts.get("action_required")}</b></article><article className="service-dashboard-kpi"><small>Completed</small><b>{completedCount}</b></article></div>
+        <div className="service-dashboard-kpis"><article className="service-dashboard-kpi"><small>Billed</small><b>{money(billed)}</b></article><article className="service-dashboard-kpi"><small>Paid in period</small><b>{money(collected)}</b></article><article className="service-dashboard-kpi"><small>Outstanding on open requests</small><b>{money(outstanding)}</b></article></div>
         <div className="service-dashboard-columns"><article className="panel service-card"><h3>Requests by status</h3><ul className="service-checklist">{requestStatuses.map(status => <li key={status}><span>{statusLabels[status]}</span><b>{counts.get(status)}</b></li>)}</ul></article><article className="panel service-card"><h3>Volume by service</h3><ul className="service-checklist">{[...volume.entries()].sort((a,b) => b[1] - a[1]).map(([name,count]) => <li key={name}><span>{name}</span><b>{count}</b></li>)}</ul>{!volume.size && <p className="empty-state">No service requests in this period.</p>}</article></div>
+        <article className="panel service-card"><h3>Staff workload</h3><p>Requests assigned during the selected period.</p><ul className="service-checklist">{[...workload.entries()].sort((a,b) => b[1] - a[1]).map(([name,count]) => <li key={name}><span>{name}</span><b>{count}</b></li>)}</ul>{!workload.size && <p className="empty-state">No assigned requests in this period.</p>}</article>
       </section>
       <section aria-label="Expiry summary">
         <h2 className="reports-section-title">Expiry summary</h2>

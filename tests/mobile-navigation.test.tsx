@@ -30,4 +30,11 @@ describe("MobileNavigation", () => {
     await user.click(screen.getByRole("button", { name: "Close menu" }));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("offers Import Data in More to an authorized user", async () => {
+    const user = userEvent.setup();
+    render(<MobileNavigation canImport logoutAction={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.getByRole("link", { name: "Import Data" }).getAttribute("href")).toBe("/imports/new");
+  });
 });

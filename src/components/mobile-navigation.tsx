@@ -38,11 +38,11 @@ export function MobileNavigation({ canImport, logoutAction, actionLabel = "Log o
     { label: "Customers", href: "/customers", icon: "customers" },
     { label: "Service catalogue", href: "/services", icon: "services" },
     { label: "Companies", href: "/companies", icon: "companies" },
+    ...(canImport ? [{ label: "Import Data", href: "/imports/new", icon: "import" as const }] : []),
     { label: "Renewals", href: "/renewals?range=30d", icon: "renewals" },
     { label: "Follow-ups", href: "/follow-ups", icon: "followups" },
     { label: "Reports", href: "/reports", icon: "reports" },
     { label: "Settings", href: "/settings", icon: "settings" },
-    ...(canImport ? [{ label: "Import data", href: "/imports/new", icon: "import" as const }] : []),
   ];
   const moreActive = more.some((item) => pathname.startsWith(item.href.split("?")[0]));
 
